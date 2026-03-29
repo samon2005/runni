@@ -275,6 +275,12 @@
                 descripcion: "Zona comercial alrededor del metro"
             },
             { 
+                nombre: "Avenida 33 - Niquía (Comercio)", 
+                lat: 6.3530, lon: -75.5380,
+                tipo: "comercial",
+                descripcion: "Comercio intenso en Avenida 33, Niquía"
+            },
+            { 
                 nombre: "Estación Metro Bello", 
                 lat: 6.3375, lon: -75.5555,
                 tipo: "metro",
@@ -291,6 +297,12 @@
                 lat: 6.3450, lon: -75.5620,
                 tipo: "gastronomico",
                 descripcion: "Alta concentración de restaurantes"
+            },
+            { 
+                nombre: "Cabañas Sur - Comercio Extenso", 
+                lat: 6.3465, lon: -75.5630,
+                tipo: "comercial",
+                descripcion: "Zona comercial extendida al sur de Cabañas"
             },
             { 
                 nombre: "Plaza de Mercado de Bello", 
@@ -349,6 +361,20 @@
                 tipo: "circuito",
                 inicio: [6.3389, -75.5578], // Parque Principal
                 fin: [6.3389, -75.5578]    // Regreso a Parque Principal (mismo punto)
+            },
+            {
+                nombre: "Ruta Estación - Avenida 33 Niquía",
+                descripcion: "Conecta estación sugerida al comercio en Avenida 33",
+                tipo: "principal",
+                inicio: [6.3389, -75.5578], // Estación Sugerida
+                fin: [6.3530, -75.5380]    // Avenida 33, Niquía
+            },
+            {
+                nombre: "Ruta Cabañas Extendida",
+                descripcion: "Recorrido por toda la zona gastronómica y comercial de Cabañas",
+                tipo: "gastronomica",
+                inicio: [6.3450, -75.5620], // Cabañas Principal
+                fin: [6.3465, -75.5630]    // Cabañas Sur
             }
         ];
         
