@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RUNNI - Mapa de Expansión Inteligente</title>
+    <title>RUNNI - Domicilios en Bicicleta</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet Heat -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     
     <style>
         * {
@@ -25,13 +24,14 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #FF6B35 0%, #F7931E 50%, #FF8C42 100%);
             padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 15px;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
         }
         
         .logo {
@@ -43,11 +43,12 @@
         .logo h1 {
             font-size: 1.8rem;
             font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
         
         .logo span {
             font-size: 0.9rem;
-            opacity: 0.9;
+            opacity: 0.95;
         }
         
         .nav-buttons {
@@ -70,16 +71,16 @@
         
         .nav-btn:hover {
             background: white;
-            color: #667eea;
+            color: #FF6B35;
         }
         
         .nav-btn.active {
             background: white;
-            color: #667eea;
+            color: #FF6B35;
         }
         
         #map {
-            height: calc(100vh - 80px);
+            height: calc(100vh - 70px);
             width: 100%;
         }
         
@@ -94,11 +95,12 @@
             color: #333;
             max-width: 320px;
             z-index: 1000;
+            border-left: 4px solid #FF6B35;
         }
         
         .info-panel h3 {
             margin-bottom: 10px;
-            color: #667eea;
+            color: #FF6B35;
             font-size: 1.1rem;
         }
         
@@ -119,6 +121,7 @@
             color: #333;
             z-index: 1000;
             font-size: 0.85rem;
+            border-left: 4px solid #FF6B35;
         }
         
         .legend-item {
@@ -156,7 +159,7 @@
             width: 40px;
             height: 40px;
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #FF6B35;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 15px;
@@ -165,6 +168,11 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* Ocultar panel de routing */
+        .leaflet-routing-container {
+            display: none !important;
         }
         
         @media (max-width: 768px) {
@@ -189,20 +197,20 @@
     <div class="header">
         <div class="logo">
             <h1>RUNNI</h1>
-            <span>Expansión Inteligente - Valle de Aburrá</span>
+            <span>Domicilios en Bicicleta - Valle de Aburrá</span>
         </div>
         <div class="nav-buttons">
-            <button class="nav-btn active" onclick="showMap('rutas')">Rutas Bello</button>
-            <button class="nav-btn" onclick="showMap('domicilios')">Mapa Domicilios</button>
-            <button class="nav-btn" onclick="showMap('runni')">Mapa Runni</button>
+            <button class="nav-btn active" onclick="showMap('rutas', this)">Rutas Bello</button>
+            <button class="nav-btn" onclick="showMap('domicilios', this)">Mapa Domicilios</button>
+            <button class="nav-btn" onclick="showMap('runni', this)">Mapa Runni</button>
         </div>
     </div>
     
     <div id="map"></div>
     
     <div class="info-panel" id="infoPanel">
-        <h3 id="infoTitle">Rutas Principales - Bello</h3>
-        <p id="infoText">Visualización de las rutas más transitadas en el municipio de Bello para la expansión del servicio Runni.</p>
+        <h3 id="infoTitle">Rutas Comerciales - Bello</h3>
+        <p id="infoText">Rutas óptimas para domiciliarios Runni en zonas comerciales de Bello.</p>
     </div>
     
     <div class="legend" id="legend"></div>
@@ -212,6 +220,13 @@
         <p>Cargando mapa...</p>
     </div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Heat -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Leaflet Routing Machine -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
     <script>
         // ============================================================
         // CONFIGURACIÓN INICIAL
@@ -220,108 +235,180 @@
         let map;
         let currentLayers = [];
         let heatLayer = null;
+        let routingControls = [];
         
         // Centro de Bello
         const BELLO_CENTER = [6.3389, -75.5578];
         // Centro Valle de Aburrá
         const VALLE_CENTER = [6.2200, -75.5800];
         
+        // Colores Runni (naranja)
+        const COLORS = {
+            primary: '#FF6B35',
+            secondary: '#F7931E',
+            accent: '#FF8C42',
+            dark: '#E55A2B',
+            light: '#FFB088'
+        };
+        
         // ============================================================
-        // DATOS DE RUTAS PRINCIPALES EN BELLO
+        // ZONAS COMERCIALES DE BELLO (Para rutas de domicilios)
         // ============================================================
         
-        const rutasBello = [
-            {
-                nombre: "Av. 52 (Carrera 52 - Eje Principal)",
-                descripcion: "Eje comercial principal de Bello, conecta con Medellín",
-                tipo: "principal",
-                coords: [
-                    [6.3550, -75.5545],
-                    [6.3480, -75.5550],
-                    [6.3389, -75.5578],
-                    [6.3300, -75.5600],
-                    [6.3200, -75.5620]
-                ]
+        const zonasComerciales = [
+            { 
+                nombre: "Centro Comercial Puerta del Norte", 
+                lat: 6.3318, lon: -75.5472,
+                tipo: "mall",
+                descripcion: "Principal centro comercial, alta demanda de domicilios"
             },
-            {
-                nombre: "Calle 50 - Centro de Bello",
-                descripcion: "Zona comercial del centro, alta actividad peatonal",
-                tipo: "principal",
-                coords: [
-                    [6.3389, -75.5650],
-                    [6.3389, -75.5578],
-                    [6.3389, -75.5500]
-                ]
+            { 
+                nombre: "Parque Principal de Bello", 
+                lat: 6.3389, lon: -75.5578,
+                tipo: "centro",
+                descripcion: "Centro histórico, zona de restaurantes"
             },
-            {
-                nombre: "Ruta Estación Metro Bello",
-                descripcion: "Conexión desde Metro Bello hacia el centro",
+            { 
+                nombre: "Estación Metro Niquía", 
+                lat: 6.3516, lon: -75.5365,
                 tipo: "metro",
-                coords: [
-                    [6.3375, -75.5555],
-                    [6.3389, -75.5578],
-                    [6.3400, -75.5600],
-                    [6.3420, -75.5630]
-                ]
+                descripcion: "Zona comercial alrededor del metro"
             },
-            {
-                nombre: "Carrera 50 - Eje Comercial",
-                descripcion: "Segunda vía comercial importante",
-                tipo: "secundaria",
-                coords: [
-                    [6.3450, -75.5600],
-                    [6.3400, -75.5590],
-                    [6.3350, -75.5580],
-                    [6.3300, -75.5570]
-                ]
+            { 
+                nombre: "Estación Metro Bello", 
+                lat: 6.3375, lon: -75.5555,
+                tipo: "metro",
+                descripcion: "Alta afluencia, comercio local"
             },
-            {
-                nombre: "Ruta Niquía",
-                descripcion: "Conexión hacia el norte - zona residencial",
-                tipo: "secundaria",
-                coords: [
-                    [6.3389, -75.5578],
-                    [6.3450, -75.5550],
-                    [6.3520, -75.5520],
-                    [6.3580, -75.5480]
-                ]
+            { 
+                nombre: "Sector Manchester", 
+                lat: 6.3280, lon: -75.5510,
+                tipo: "comercial",
+                descripcion: "Zona industrial con restaurantes"
             },
-            {
-                nombre: "Diagonal 52 - Conexión Copacabana",
-                descripcion: "Ruta hacia Copacabana, uso frecuente",
-                tipo: "secundaria",
-                coords: [
-                    [6.3450, -75.5545],
-                    [6.3500, -75.5500],
-                    [6.3550, -75.5450],
-                    [6.3600, -75.5400]
-                ]
+            { 
+                nombre: "Cabañas - Zona Gastronómica", 
+                lat: 6.3450, lon: -75.5620,
+                tipo: "gastronomico",
+                descripcion: "Alta concentración de restaurantes"
             },
-            {
-                nombre: "Circuito Parque de Bello",
-                descripcion: "Zona recreativa, ideal para ciclismo",
-                tipo: "recreativa",
-                coords: [
-                    [6.3370, -75.5600],
-                    [6.3380, -75.5580],
-                    [6.3395, -75.5570],
-                    [6.3405, -75.5585],
-                    [6.3395, -75.5605],
-                    [6.3370, -75.5600]
-                ]
+            { 
+                nombre: "Plaza de Mercado de Bello", 
+                lat: 6.3400, lon: -75.5590,
+                tipo: "mercado",
+                descripcion: "Zona tradicional de comercio"
+            },
+            { 
+                nombre: "Sector Zamora", 
+                lat: 6.3340, lon: -75.5650,
+                tipo: "comercial",
+                descripcion: "Corredor comercial residencial"
             }
         ];
         
-        // Puntos de interés en Bello
-        const puntosBello = [
-            { nombre: "Centro de Bello", lat: 6.3389, lon: -75.5578, tipo: "centro", icono: "🏛️" },
-            { nombre: "Estación Metro Bello", lat: 6.3375, lon: -75.5555, tipo: "metro", icono: "🚇" },
-            { nombre: "Estación Metro Niquía", lat: 6.3520, lon: -75.5520, tipo: "metro", icono: "🚇" },
-            { nombre: "Plaza de Bello", lat: 6.3395, lon: -75.5585, tipo: "plaza", icono: "🌳" },
-            { nombre: "Centro Comercial Puerta del Norte", lat: 6.3350, lon: -75.5530, tipo: "comercial", icono: "🛒" },
-            { nombre: "Hospital Marco Fidel Suárez", lat: 6.3420, lon: -75.5610, tipo: "hospital", icono: "🏥" },
-            { nombre: "Punto Sugerido Estación Runni 1", lat: 6.3389, lon: -75.5578, tipo: "runni", icono: "🚲" },
-            { nombre: "Punto Sugerido Estación Runni 2", lat: 6.3520, lon: -75.5520, tipo: "runni", icono: "🚲" }
+        // Rutas entre zonas comerciales (puntos de paso por calles reales)
+        const rutasComerciales = [
+            {
+                nombre: "Ruta Centro - Puerta del Norte",
+                descripcion: "Conecta el centro con el mall principal",
+                tipo: "principal",
+                waypoints: [
+                    [6.3389, -75.5578], // Parque Principal
+                    [6.3385, -75.5570], // Sur Parque
+                    [6.3380, -75.5560], // Calle 51
+                    [6.3375, -75.5548], // Metro Bello
+                    [6.3368, -75.5535], // Calle 50
+                    [6.3360, -75.5520], // Carrera 48
+                    [6.3350, -75.5510], // Calle 49
+                    [6.3340, -75.5495], // Carrera 47
+                    [6.3328, -75.5478], // Calle 48
+                    [6.3318, -75.5472]  // Puerta del Norte
+                ]
+            },
+            {
+                nombre: "Ruta Metro Niquía - Centro",
+                descripcion: "Eje norte-sur por la avenida principal",
+                tipo: "principal",
+                waypoints: [
+                    [6.3516, -75.5365], // Metro Niquía
+                    [6.3505, -75.5378], // Calle 55
+                    [6.3495, -75.5390], // Carrera 50
+                    [6.3480, -75.5405], // Calle 54
+                    [6.3468, -75.5420], // Carrera 49
+                    [6.3455, -75.5435], // Calle 53
+                    [6.3440, -75.5455], // Carrera 48
+                    [6.3428, -75.5470], // Calle 52
+                    [6.3415, -75.5485], // Carrera 48A
+                    [6.3400, -75.5505], // Calle 51
+                    [6.3388, -75.5520], // Carrera 48
+                    [6.3375, -75.5555]  // Metro Bello
+                ]
+            },
+            {
+                nombre: "Ruta Cabañas - Plaza de Mercado",
+                descripcion: "Zona gastronómica hacia el mercado",
+                tipo: "gastronomica",
+                waypoints: [
+                    [6.3450, -75.5620], // Cabañas
+                    [6.3445, -75.5615], // Sur Cabañas
+                    [6.3438, -75.5610], // Carrera 50
+                    [6.3428, -75.5605], // Calle 50
+                    [6.3420, -75.5600], // Carrera 49
+                    [6.3410, -75.5595], // Calle 50A
+                    [6.3405, -75.5592], // Carrera 48
+                    [6.3400, -75.5590]  // Plaza de Mercado
+                ]
+            },
+            {
+                nombre: "Ruta Manchester - Metro Bello",
+                descripcion: "Conecta zona industrial con el metro",
+                tipo: "secundaria",
+                waypoints: [
+                    [6.3280, -75.5510], // Manchester
+                    [6.3288, -75.5515], // Carrera 49
+                    [6.3298, -75.5520], // Calle 47
+                    [6.3310, -75.5525], // Carrera 49
+                    [6.3320, -75.5530], // Calle 48
+                    [6.3332, -75.5535], // Carrera 49A
+                    [6.3345, -75.5542], // Calle 49
+                    [6.3358, -75.5548], // Carrera 48
+                    [6.3368, -75.5552], // Calle 50
+                    [6.3375, -75.5555]  // Metro Bello
+                ]
+            },
+            {
+                nombre: "Ruta Zamora - Centro",
+                descripcion: "Corredor comercial occidental",
+                tipo: "secundaria",
+                waypoints: [
+                    [6.3340, -75.5650], // Zamora
+                    [6.3342, -75.5640], // Norte Zamora
+                    [6.3345, -75.5628], // Carrera 51
+                    [6.3350, -75.5620], // Calle 51
+                    [6.3355, -75.5610], // Carrera 50
+                    [6.3360, -75.5600], // Calle 51
+                    [6.3370, -75.5590], // Carrera 49
+                    [6.3380, -75.5585], // Calle 50
+                    [6.3389, -75.5578]  // Centro
+                ]
+            },
+            {
+                nombre: "Circuito Centro Comercial",
+                descripcion: "Recorrido por el centro de Bello",
+                tipo: "circuito",
+                waypoints: [
+                    [6.3389, -75.5578], // Parque Principal
+                    [6.3392, -75.5585], // Carrera 48
+                    [6.3400, -75.5590], // Plaza de Mercado
+                    [6.3408, -75.5585], // Carrera 49
+                    [6.3410, -75.5575], // Calle 50
+                    [6.3405, -75.5565], // Carrera 48
+                    [6.3398, -75.5560], // Calle 50
+                    [6.3392, -75.5568], // Carrera 47
+                    [6.3395, -75.5555], // Calle 50A
+                    [6.3389, -75.5578]  // Regreso a Parque Principal
+                ]
+            }
         ];
         
         // ============================================================
@@ -370,17 +457,23 @@
         // ============================================================
         
         function initMap() {
-            map = L.map('map').setView(BELLO_CENTER, 14);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap contributors © CARTO',
-                maxZoom: 19
-            }).addTo(map);
-            
-            // Mostrar rutas de Bello por defecto
-            showMap('rutas');
-            
-            document.getElementById('loading').classList.add('hidden');
+            try {
+                map = L.map('map').setView(BELLO_CENTER, 14);
+                
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© OpenStreetMap © CARTO',
+                    maxZoom: 19
+                }).addTo(map);
+                
+                // Mostrar rutas de Bello por defecto
+                showRutasBello();
+                
+                // Ocultar loading
+                document.getElementById('loading').classList.add('hidden');
+            } catch (error) {
+                console.error('Error inicializando mapa:', error);
+                document.getElementById('loading').innerHTML = '<p>Error cargando el mapa. Recarga la página.</p>';
+            }
         }
         
         // ============================================================
@@ -388,24 +481,40 @@
         // ============================================================
         
         function clearLayers() {
-            currentLayers.forEach(layer => map.removeLayer(layer));
+            currentLayers.forEach(layer => {
+                try {
+                    map.removeLayer(layer);
+                } catch(e) {}
+            });
             currentLayers = [];
+            
             if (heatLayer) {
-                map.removeLayer(heatLayer);
+                try {
+                    map.removeLayer(heatLayer);
+                } catch(e) {}
                 heatLayer = null;
             }
+            
+            routingControls.forEach(control => {
+                try {
+                    map.removeControl(control);
+                } catch(e) {}
+            });
+            routingControls = [];
         }
         
-        function updateButtons(active) {
+        function updateButtons(clickedBtn) {
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            if (clickedBtn) {
+                clickedBtn.classList.add('active');
+            }
         }
         
-        function showMap(tipo) {
+        function showMap(tipo, btn) {
             clearLayers();
-            updateButtons(tipo);
+            updateButtons(btn);
             
             switch(tipo) {
                 case 'rutas':
@@ -421,88 +530,138 @@
         }
         
         // ============================================================
-        // MAPA 1: RUTAS DE BELLO
+        // MAPA 1: RUTAS COMERCIALES DE BELLO
         // ============================================================
         
         function showRutasBello() {
             map.setView(BELLO_CENTER, 14);
             
-            const colores = {
-                principal: '#e74c3c',
-                metro: '#3498db',
-                secundaria: '#f39c12',
-                recreativa: '#2ecc71'
+            const coloresRuta = {
+                principal: COLORS.primary,
+                gastronomica: COLORS.secondary,
+                secundaria: COLORS.accent,
+                circuito: COLORS.dark
             };
             
-            // Dibujar rutas
-            rutasBello.forEach(ruta => {
-                const polyline = L.polyline(ruta.coords, {
-                    color: colores[ruta.tipo],
+            // Dibujar rutas siguiendo las calles
+            rutasComerciales.forEach(ruta => {
+                const polyline = L.polyline(ruta.waypoints, {
+                    color: coloresRuta[ruta.tipo] || COLORS.primary,
                     weight: ruta.tipo === 'principal' ? 6 : 4,
-                    opacity: 0.8
+                    opacity: 0.85,
+                    smoothFactor: 1,
+                    lineJoin: 'round'
                 }).addTo(map);
                 
                 polyline.bindPopup(`
-                    <b>${ruta.nombre}</b><br>
-                    <small>${ruta.descripcion}</small><br>
-                    <span style="color: ${colores[ruta.tipo]}">● Ruta ${ruta.tipo}</span>
+                    <div style="min-width: 200px;">
+                        <h4 style="color: ${COLORS.primary}; margin: 0 0 8px 0;">${ruta.nombre}</h4>
+                        <p style="margin: 0; font-size: 13px;">${ruta.descripcion}</p>
+                        <span style="display: inline-block; margin-top: 8px; padding: 3px 8px; background: ${coloresRuta[ruta.tipo]}; color: white; border-radius: 12px; font-size: 11px;">
+                            Ruta ${ruta.tipo}
+                        </span>
+                    </div>
                 `);
                 
                 currentLayers.push(polyline);
             });
             
-            // Dibujar puntos de interés
-            puntosBello.forEach(punto => {
-                const marker = L.marker([punto.lat, punto.lon], {
+            // Dibujar zonas comerciales
+            const iconosTipo = {
+                mall: '🛒',
+                centro: '🏛️',
+                metro: '🚇',
+                comercial: '🏪',
+                gastronomico: '🍽️',
+                mercado: '🥬'
+            };
+            
+            zonasComerciales.forEach(zona => {
+                const marker = L.marker([zona.lat, zona.lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
-                        html: `<div style="font-size: 24px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">${punto.icono}</div>`,
-                        iconSize: [30, 30],
-                        iconAnchor: [15, 15]
+                        html: `<div style="
+                            font-size: 26px; 
+                            text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+                            background: white;
+                            border-radius: 50%;
+                            width: 36px;
+                            height: 36px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        ">${iconosTipo[zona.tipo] || '📍'}</div>`,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18]
                     })
                 }).addTo(map);
                 
-                const color = punto.tipo === 'runni' ? '#667eea' : '#333';
                 marker.bindPopup(`
-                    <b style="color: ${color}">${punto.nombre}</b><br>
-                    <small>${punto.tipo === 'runni' ? '🚲 Punto sugerido para estación Runni' : ''}</small>
+                    <div style="min-width: 180px;">
+                        <h4 style="color: ${COLORS.primary}; margin: 0 0 8px 0;">${zona.nombre}</h4>
+                        <p style="margin: 0; font-size: 13px; color: #666;">${zona.descripcion}</p>
+                    </div>
                 `);
                 
                 currentLayers.push(marker);
             });
             
+            // Punto sugerido para estación Runni en Bello
+            const estacionSugerida = L.marker([6.3389, -75.5578], {
+                icon: L.divIcon({
+                    className: 'runni-station',
+                    html: `<div style="
+                        background: ${COLORS.primary};
+                        color: white;
+                        padding: 8px 12px;
+                        border-radius: 20px;
+                        font-weight: bold;
+                        font-size: 12px;
+                        white-space: nowrap;
+                        box-shadow: 0 3px 10px rgba(255,107,53,0.4);
+                    ">🚲 Estación Runni Sugerida</div>`,
+                    iconSize: [150, 30],
+                    iconAnchor: [75, 40]
+                })
+            }).addTo(map);
+            currentLayers.push(estacionSugerida);
+            
             // Actualizar panel de información
-            document.getElementById('infoTitle').textContent = 'Rutas Principales - Bello';
+            document.getElementById('infoTitle').textContent = 'Rutas Comerciales - Bello';
             document.getElementById('infoText').innerHTML = `
-                <strong>Análisis de rutas para expansión Runni</strong><br><br>
-                Se identificaron <b>7 rutas principales</b> en Bello con alto potencial para el servicio de bicicletas.<br><br>
-                <b>Puntos sugeridos para estaciones:</b><br>
-                • Centro de Bello (Plaza principal)<br>
-                • Estación Metro Niquía
+                <strong>Rutas óptimas para domiciliarios Runni</strong><br><br>
+                <b>${rutasComerciales.length} rutas</b> conectando <b>${zonasComerciales.length} zonas comerciales</b> en Bello.<br><br>
+                <b>Zonas de alta demanda:</b><br>
+                • Puerta del Norte (Mall)<br>
+                • Cabañas (Gastronómico)<br>
+                • Centro de Bello
             `;
             
             // Actualizar leyenda
             document.getElementById('legend').innerHTML = `
-                <b>Leyenda - Rutas Bello</b><br><br>
+                <b style="color: ${COLORS.primary};">Leyenda - Rutas Bello</b><br><br>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #e74c3c"></div>
+                    <div class="legend-color" style="background: ${COLORS.primary}"></div>
                     <span>Ruta principal</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #3498db"></div>
-                    <span>Conexión Metro</span>
+                    <div class="legend-color" style="background: ${COLORS.secondary}"></div>
+                    <span>Ruta gastronómica</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #f39c12"></div>
+                    <div class="legend-color" style="background: ${COLORS.accent}"></div>
                     <span>Ruta secundaria</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #2ecc71"></div>
-                    <span>Ruta recreativa</span>
+                    <div class="legend-color" style="background: ${COLORS.dark}"></div>
+                    <span>Circuito</span>
                 </div>
-                <div class="legend-item">
-                    <span>🚲 Estación sugerida</span>
-                </div>
+                <br>
+                <div class="legend-item">🛒 Centro comercial</div>
+                <div class="legend-item">🍽️ Zona gastronómica</div>
+                <div class="legend-item">🚇 Estación Metro</div>
+                <div class="legend-item">🚲 Estación sugerida</div>
             `;
         }
         
@@ -523,17 +682,17 @@
                 }
             });
             
-            // Crear capa de calor
+            // Crear capa de calor con colores naranja
             heatLayer = L.heatLayer(heatData, {
                 radius: 20,
                 blur: 15,
                 maxZoom: 14,
                 gradient: {
-                    0.2: '#0000ff',
-                    0.4: '#00ff00',
-                    0.6: '#ffff00',
-                    0.8: '#ff8000',
-                    1.0: '#ff0000'
+                    0.2: '#FFE4D6',
+                    0.4: '#FFB088',
+                    0.6: '#FF8C42',
+                    0.8: '#FF6B35',
+                    1.0: '#E55A2B'
                 }
             }).addTo(map);
             
@@ -542,20 +701,20 @@
                 const marker = L.marker([est.lat, est.lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
-                        html: '<div style="font-size: 28px;">⚡</div>',
+                        html: `<div style="font-size: 28px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));">⚡</div>`,
                         iconSize: [30, 30],
                         iconAnchor: [15, 15]
                     })
                 }).addTo(map);
                 
-                marker.bindPopup(`<b>${est.nombre}</b><br><small>Estación actual Runni</small>`);
+                marker.bindPopup(`<b style="color: ${COLORS.primary}">${est.nombre}</b><br><small>Estación actual Runni</small>`);
                 currentLayers.push(marker);
                 
                 // Radio de cobertura
                 const circle = L.circle([est.lat, est.lon], {
                     radius: 2000,
-                    color: '#3498db',
-                    fillColor: '#3498db',
+                    color: COLORS.primary,
+                    fillColor: COLORS.primary,
                     fillOpacity: 0.1
                 }).addTo(map);
                 currentLayers.push(circle);
@@ -571,13 +730,13 @@
                 if (!tieneEstacion) {
                     const circle = L.circleMarker([zona.lat, zona.lon], {
                         radius: 15,
-                        color: '#2ecc71',
-                        fillColor: '#2ecc71',
+                        color: COLORS.secondary,
+                        fillColor: COLORS.secondary,
                         fillOpacity: 0.4
                     }).addTo(map);
                     
                     circle.bindPopup(`
-                        <b>🚀 Zona de Oportunidad</b><br>
+                        <b style="color: ${COLORS.primary};">🚀 Zona de Oportunidad</b><br>
                         ${zona.nombre}<br>
                         <small>Score: ${(zona.peso * 100).toFixed(0)}/100</small>
                     `);
@@ -587,8 +746,8 @@
             
             document.getElementById('infoTitle').textContent = 'Mapa de Domicilios';
             document.getElementById('infoText').innerHTML = `
-                <strong>Densidad de restaurantes y negocios de comida</strong><br><br>
-                Datos de OpenStreetMap para identificar zonas con alta demanda potencial de domicilios.<br><br>
+                <strong>Densidad de restaurantes y negocios</strong><br><br>
+                Datos de OpenStreetMap para identificar zonas con alta demanda de domicilios.<br><br>
                 <b>Zonas prioritarias sin cobertura:</b><br>
                 • Envigado Centro<br>
                 • Bello Centro<br>
@@ -596,28 +755,27 @@
             `;
             
             document.getElementById('legend').innerHTML = `
-                <b>Leyenda - Domicilios</b><br><br>
+                <b style="color: ${COLORS.primary};">Leyenda - Domicilios</b><br><br>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ff0000"></div>
+                    <div class="legend-color" style="background: ${COLORS.dark}"></div>
                     <span>Alta densidad</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ff8000"></div>
+                    <div class="legend-color" style="background: ${COLORS.primary}"></div>
                     <span>Densidad media-alta</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ffff00"></div>
+                    <div class="legend-color" style="background: ${COLORS.accent}"></div>
                     <span>Densidad media</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #00ff00"></div>
+                    <div class="legend-color" style="background: ${COLORS.light}"></div>
                     <span>Densidad baja</span>
                 </div>
+                <br>
+                <div class="legend-item">⚡ Estación actual</div>
                 <div class="legend-item">
-                    <span>⚡ Estación actual</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #2ecc71; border-radius: 50%;"></div>
+                    <div class="legend-color" style="background: ${COLORS.secondary}; border-radius: 50%;"></div>
                     <span>Zona oportunidad</span>
                 </div>
             `;
@@ -645,10 +803,11 @@
                 blur: 12,
                 maxZoom: 13,
                 gradient: {
-                    0.2: '#3498db',
-                    0.5: '#2ecc71',
-                    0.8: '#f39c12',
-                    1.0: '#e74c3c'
+                    0.2: '#FFE4D6',
+                    0.4: '#FFB088',
+                    0.6: '#FF8C42',
+                    0.8: '#FF6B35',
+                    1.0: '#E55A2B'
                 }
             }).addTo(map);
             
@@ -657,12 +816,12 @@
                 const marker = L.marker([est.lat, est.lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
-                        html: '<div style="font-size: 28px;">⚡</div>',
+                        html: `<div style="font-size: 28px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));">⚡</div>`,
                         iconSize: [30, 30],
                         iconAnchor: [15, 15]
                     })
                 }).addTo(map);
-                marker.bindPopup(`<b>${est.nombre}</b>`);
+                marker.bindPopup(`<b style="color: ${COLORS.primary}">${est.nombre}</b>`);
                 currentLayers.push(marker);
             });
             
@@ -675,7 +834,8 @@
             ];
             
             zonasExpansion.forEach(zona => {
-                const color = zona.score === 'Alto' ? '#2ecc71' : zona.score === 'Medio-Alto' ? '#f39c12' : '#95a5a6';
+                const color = zona.score === 'Alto' ? COLORS.primary : 
+                              zona.score === 'Medio-Alto' ? COLORS.secondary : COLORS.light;
                 
                 const circle = L.circleMarker([zona.lat, zona.lon], {
                     radius: 20,
@@ -685,7 +845,7 @@
                 }).addTo(map);
                 
                 circle.bindPopup(`
-                    <b>🚀 ${zona.nombre}</b><br>
+                    <b style="color: ${COLORS.primary};">🚀 ${zona.nombre}</b><br>
                     Score de expansión: <b>${zona.score}</b>
                 `);
                 currentLayers.push(circle);
@@ -702,31 +862,30 @@
             `;
             
             document.getElementById('legend').innerHTML = `
-                <b>Leyenda - Uso Runni</b><br><br>
+                <b style="color: ${COLORS.primary};">Leyenda - Uso Runni</b><br><br>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #e74c3c"></div>
+                    <div class="legend-color" style="background: ${COLORS.dark}"></div>
                     <span>Alta actividad</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #f39c12"></div>
+                    <div class="legend-color" style="background: ${COLORS.primary}"></div>
                     <span>Actividad media</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #2ecc71"></div>
+                    <div class="legend-color" style="background: ${COLORS.light}"></div>
                     <span>Actividad baja</span>
                 </div>
+                <br>
+                <div class="legend-item">⚡ Estación actual</div>
                 <div class="legend-item">
-                    <span>⚡ Estación actual</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #2ecc71; border-radius: 50%;"></div>
+                    <div class="legend-color" style="background: ${COLORS.primary}; border-radius: 50%;"></div>
                     <span>Zona expansión prioritaria</span>
                 </div>
             `;
         }
         
         // Inicializar cuando cargue la página
-        document.addEventListener('DOMContentLoaded', initMap);
+        window.onload = initMap;
     </script>
 </body>
 </html>
