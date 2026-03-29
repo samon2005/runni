@@ -312,102 +312,43 @@
                 nombre: "Ruta Centro - Puerta del Norte",
                 descripcion: "Conecta el centro con el mall principal",
                 tipo: "principal",
-                waypoints: [
-                    [6.3389, -75.5578], // Parque Principal
-                    [6.3385, -75.5570], // Sur Parque
-                    [6.3380, -75.5560], // Calle 51
-                    [6.3375, -75.5548], // Metro Bello
-                    [6.3368, -75.5535], // Calle 50
-                    [6.3360, -75.5520], // Carrera 48
-                    [6.3350, -75.5510], // Calle 49
-                    [6.3340, -75.5495], // Carrera 47
-                    [6.3328, -75.5478], // Calle 48
-                    [6.3318, -75.5472]  // Puerta del Norte
-                ]
+                inicio: [6.3389, -75.5578], // Parque Principal
+                fin: [6.3318, -75.5472]    // Puerta del Norte
             },
             {
                 nombre: "Ruta Metro Niquía - Centro",
                 descripcion: "Eje norte-sur por la avenida principal",
                 tipo: "principal",
-                waypoints: [
-                    [6.3516, -75.5365], // Metro Niquía
-                    [6.3505, -75.5378], // Calle 55
-                    [6.3495, -75.5390], // Carrera 50
-                    [6.3480, -75.5405], // Calle 54
-                    [6.3468, -75.5420], // Carrera 49
-                    [6.3455, -75.5435], // Calle 53
-                    [6.3440, -75.5455], // Carrera 48
-                    [6.3428, -75.5470], // Calle 52
-                    [6.3415, -75.5485], // Carrera 48A
-                    [6.3400, -75.5505], // Calle 51
-                    [6.3388, -75.5520], // Carrera 48
-                    [6.3375, -75.5555]  // Metro Bello
-                ]
+                inicio: [6.3516, -75.5365], // Metro Niquía
+                fin: [6.3375, -75.5555]    // Metro Bello
             },
             {
                 nombre: "Ruta Cabañas - Plaza de Mercado",
                 descripcion: "Zona gastronómica hacia el mercado",
                 tipo: "gastronomica",
-                waypoints: [
-                    [6.3450, -75.5620], // Cabañas
-                    [6.3445, -75.5615], // Sur Cabañas
-                    [6.3438, -75.5610], // Carrera 50
-                    [6.3428, -75.5605], // Calle 50
-                    [6.3420, -75.5600], // Carrera 49
-                    [6.3410, -75.5595], // Calle 50A
-                    [6.3405, -75.5592], // Carrera 48
-                    [6.3400, -75.5590]  // Plaza de Mercado
-                ]
+                inicio: [6.3450, -75.5620], // Cabañas
+                fin: [6.3400, -75.5590]    // Plaza de Mercado
             },
             {
                 nombre: "Ruta Manchester - Metro Bello",
                 descripcion: "Conecta zona industrial con el metro",
                 tipo: "secundaria",
-                waypoints: [
-                    [6.3280, -75.5510], // Manchester
-                    [6.3288, -75.5515], // Carrera 49
-                    [6.3298, -75.5520], // Calle 47
-                    [6.3310, -75.5525], // Carrera 49
-                    [6.3320, -75.5530], // Calle 48
-                    [6.3332, -75.5535], // Carrera 49A
-                    [6.3345, -75.5542], // Calle 49
-                    [6.3358, -75.5548], // Carrera 48
-                    [6.3368, -75.5552], // Calle 50
-                    [6.3375, -75.5555]  // Metro Bello
-                ]
+                inicio: [6.3280, -75.5510], // Manchester
+                fin: [6.3375, -75.5555]    // Metro Bello
             },
             {
                 nombre: "Ruta Zamora - Centro",
                 descripcion: "Corredor comercial occidental",
                 tipo: "secundaria",
-                waypoints: [
-                    [6.3340, -75.5650], // Zamora
-                    [6.3342, -75.5640], // Norte Zamora
-                    [6.3345, -75.5628], // Carrera 51
-                    [6.3350, -75.5620], // Calle 51
-                    [6.3355, -75.5610], // Carrera 50
-                    [6.3360, -75.5600], // Calle 51
-                    [6.3370, -75.5590], // Carrera 49
-                    [6.3380, -75.5585], // Calle 50
-                    [6.3389, -75.5578]  // Centro
-                ]
+                inicio: [6.3340, -75.5650], // Zamora
+                fin: [6.3389, -75.5578]    // Centro
             },
             {
                 nombre: "Circuito Centro Comercial",
                 descripcion: "Recorrido por el centro de Bello",
                 tipo: "circuito",
-                waypoints: [
-                    [6.3389, -75.5578], // Parque Principal
-                    [6.3392, -75.5585], // Carrera 48
-                    [6.3400, -75.5590], // Plaza de Mercado
-                    [6.3408, -75.5585], // Carrera 49
-                    [6.3410, -75.5575], // Calle 50
-                    [6.3405, -75.5565], // Carrera 48
-                    [6.3398, -75.5560], // Calle 50
-                    [6.3392, -75.5568], // Carrera 47
-                    [6.3395, -75.5555], // Calle 50A
-                    [6.3389, -75.5578]  // Regreso a Parque Principal
-                ]
+                inicio: [6.3389, -75.5578], // Parque Principal
+                fin: [6.3389, -75.5578]    // Regreso a Parque Principal (mismo punto)
             }
         ];
         
@@ -530,6 +471,31 @@
         }
         
         // ============================================================
+        // FUNCIÓN AUXILIAR: Obtener ruta real de OSRM (calles)
+        // ============================================================
+        
+        async function obtenerRutaOSRM(inicio, fin) {
+            try {
+                // Usar servicio público gratuito de OSRM
+                // Formato: /route/v1/{profile}/{coordinates}
+                const url = `https://router.project-osrm.org/route/v1/bike/${inicio[1]},${inicio[0]};${fin[1]},${fin[0]}?overview=full&geometries=geojson`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.routes && data.routes[0]) {
+                    // Convertir formato GeoJSON a formato Leaflet [lat, lon]
+                    return data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                }
+                return null;
+            } catch (error) {
+                console.error('Error obteniendo ruta OSRM:', error);
+                // Si falla, retornar línea recta como fallback
+                return [inicio, fin];
+            }
+        }
+        
+        // ============================================================
         // MAPA 1: RUTAS COMERCIALES DE BELLO
         // ============================================================
         
@@ -543,27 +509,59 @@
                 circuito: COLORS.dark
             };
             
-            // Dibujar rutas siguiendo las calles
-            rutasComerciales.forEach(ruta => {
-                const polyline = L.polyline(ruta.waypoints, {
-                    color: coloresRuta[ruta.tipo] || COLORS.primary,
-                    weight: ruta.tipo === 'principal' ? 6 : 4,
-                    opacity: 0.85,
-                    smoothFactor: 1,
-                    lineJoin: 'round'
-                }).addTo(map);
+            // Dibujar rutas obteniendo rutas reales de OSRM (por las calles)
+            rutasComerciales.forEach(async (ruta) => {
+                try {
+                    // Obtener ruta real desde OSRM
+                    const waypoints = await obtenerRutaOSRM(ruta.inicio, ruta.fin);
+                    
+                    if (waypoints) {
+                        const polyline = L.polyline(waypoints, {
+                            color: coloresRuta[ruta.tipo] || COLORS.primary,
+                            weight: ruta.tipo === 'principal' ? 6 : 4,
+                            opacity: 0.85,
+                            smoothFactor: 1,
+                            lineJoin: 'round'
+                        }).addTo(map);
+                        
+                        polyline.bindPopup(`
+                            <div style="min-width: 200px;">
+                                <h4 style="color: ${COLORS.primary}; margin: 0 0 8px 0;">${ruta.nombre}</h4>
+                                <p style="margin: 0; font-size: 13px;">${ruta.descripcion}</p>
+                                <span style="display: inline-block; margin-top: 8px; padding: 3px 8px; background: ${coloresRuta[ruta.tipo]}; color: white; border-radius: 12px; font-size: 11px;">
+                                    Ruta ${ruta.tipo}
+                                </span>
+                            </div>
+                        `);
+                        
+                        currentLayers.push(polyline);
+                    }
+                } catch (error) {
+                    console.error(`Error dibujando ruta ${ruta.nombre}:`, error);
+                }
                 
-                polyline.bindPopup(`
-                    <div style="min-width: 200px;">
-                        <h4 style="color: ${COLORS.primary}; margin: 0 0 8px 0;">${ruta.nombre}</h4>
-                        <p style="margin: 0; font-size: 13px;">${ruta.descripcion}</p>
-                        <span style="display: inline-block; margin-top: 8px; padding: 3px 8px; background: ${coloresRuta[ruta.tipo]}; color: white; border-radius: 12px; font-size: 11px;">
-                            Ruta ${ruta.tipo}
-                        </span>
-                    </div>
-                `);
-                
-                currentLayers.push(polyline);
+                // Agregar marcadores de inicio y fin
+                if (ruta.inicio !== ruta.fin) {
+                    const markerInicio = L.circleMarker(ruta.inicio, {
+                        radius: 8,
+                        fillColor: coloresRuta[ruta.tipo],
+                        color: 'white',
+                        weight: 2,
+                        opacity: 0.8,
+                        fillOpacity: 0.7
+                    }).addTo(map).bindPopup(`Inicio: ${ruta.nombre}`);
+                    currentLayers.push(markerInicio);
+                    
+                    const markerFin = L.circleMarker(ruta.fin, {
+                        radius: 8,
+                        fillColor: coloresRuta[ruta.tipo],
+                        color: 'white',
+                        weight: 2,
+                        opacity: 0.8,
+                        fillOpacity: 0.5
+                    }).addTo(map).bindPopup(`Fin: ${ruta.nombre}`);
+                    currentLayers.push(markerFin);
+                }
             });
             
             // Dibujar zonas comerciales
