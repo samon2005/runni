@@ -706,17 +706,17 @@
                 }
             });
             
-            // Crear capa de calor con colores naranja
+            // Crear capa de calor
             heatLayer = L.heatLayer(heatData, {
                 radius: 20,
                 blur: 15,
                 maxZoom: 14,
                 gradient: {
-                    0.2: '#FFE4D6',
-                    0.4: '#FFB088',
-                    0.6: '#FF8C42',
-                    0.8: '#FF6B35',
-                    1.0: '#E55A2B'
+                    0.2: '#0000ff',
+                    0.4: '#00ff00',
+                    0.6: '#ffff00',
+                    0.8: '#ff8000',
+                    1.0: '#ff0000'
                 }
             }).addTo(map);
             
@@ -725,20 +725,20 @@
                 const marker = L.marker([est.lat, est.lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
-                        html: `<div style="font-size: 28px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));">⚡</div>`,
+                        html: '<div style="font-size: 28px;">⚡</div>',
                         iconSize: [30, 30],
                         iconAnchor: [15, 15]
                     })
                 }).addTo(map);
                 
-                marker.bindPopup(`<b style="color: ${COLORS.primary}">${est.nombre}</b><br><small>Estación actual Runni</small>`);
+                marker.bindPopup(`<b>${est.nombre}</b><br><small>Estación actual Runni</small>`);
                 currentLayers.push(marker);
                 
                 // Radio de cobertura
                 const circle = L.circle([est.lat, est.lon], {
                     radius: 2000,
-                    color: COLORS.primary,
-                    fillColor: COLORS.primary,
+                    color: '#3498db',
+                    fillColor: '#3498db',
                     fillOpacity: 0.1
                 }).addTo(map);
                 currentLayers.push(circle);
@@ -754,13 +754,13 @@
                 if (!tieneEstacion) {
                     const circle = L.circleMarker([zona.lat, zona.lon], {
                         radius: 15,
-                        color: COLORS.secondary,
-                        fillColor: COLORS.secondary,
+                        color: '#2ecc71',
+                        fillColor: '#2ecc71',
                         fillOpacity: 0.4
                     }).addTo(map);
                     
                     circle.bindPopup(`
-                        <b style="color: ${COLORS.primary};">🚀 Zona de Oportunidad</b><br>
+                        <b>🚀 Zona de Oportunidad</b><br>
                         ${zona.nombre}<br>
                         <small>Score: ${(zona.peso * 100).toFixed(0)}/100</small>
                     `);
@@ -770,8 +770,8 @@
             
             document.getElementById('infoTitle').textContent = 'Mapa de Domicilios';
             document.getElementById('infoText').innerHTML = `
-                <strong>Densidad de restaurantes y negocios</strong><br><br>
-                Datos de OpenStreetMap para identificar zonas con alta demanda de domicilios.<br><br>
+                <strong>Densidad de restaurantes y negocios de comida</strong><br><br>
+                Datos de OpenStreetMap para identificar zonas con alta demanda potencial de domicilios.<br><br>
                 <b>Zonas prioritarias sin cobertura:</b><br>
                 • Envigado Centro<br>
                 • Bello Centro<br>
@@ -779,27 +779,28 @@
             `;
             
             document.getElementById('legend').innerHTML = `
-                <b style="color: ${COLORS.primary};">Leyenda - Domicilios</b><br><br>
+                <b>Leyenda - Domicilios</b><br><br>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.dark}"></div>
+                    <div class="legend-color" style="background: #ff0000"></div>
                     <span>Alta densidad</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.primary}"></div>
+                    <div class="legend-color" style="background: #ff8000"></div>
                     <span>Densidad media-alta</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.accent}"></div>
+                    <div class="legend-color" style="background: #ffff00"></div>
                     <span>Densidad media</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.light}"></div>
+                    <div class="legend-color" style="background: #00ff00"></div>
                     <span>Densidad baja</span>
                 </div>
-                <br>
-                <div class="legend-item">⚡ Estación actual</div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.secondary}; border-radius: 50%;"></div>
+                    <span>⚡ Estación actual</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2ecc71; border-radius: 50%;"></div>
                     <span>Zona oportunidad</span>
                 </div>
             `;
@@ -827,11 +828,10 @@
                 blur: 12,
                 maxZoom: 13,
                 gradient: {
-                    0.2: '#FFE4D6',
-                    0.4: '#FFB088',
-                    0.6: '#FF8C42',
-                    0.8: '#FF6B35',
-                    1.0: '#E55A2B'
+                    0.2: '#3498db',
+                    0.5: '#2ecc71',
+                    0.8: '#f39c12',
+                    1.0: '#e74c3c'
                 }
             }).addTo(map);
             
@@ -840,12 +840,12 @@
                 const marker = L.marker([est.lat, est.lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
-                        html: `<div style="font-size: 28px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));">⚡</div>`,
+                        html: '<div style="font-size: 28px;">⚡</div>',
                         iconSize: [30, 30],
                         iconAnchor: [15, 15]
                     })
                 }).addTo(map);
-                marker.bindPopup(`<b style="color: ${COLORS.primary}">${est.nombre}</b>`);
+                marker.bindPopup(`<b>${est.nombre}</b>`);
                 currentLayers.push(marker);
             });
             
@@ -858,8 +858,7 @@
             ];
             
             zonasExpansion.forEach(zona => {
-                const color = zona.score === 'Alto' ? COLORS.primary : 
-                              zona.score === 'Medio-Alto' ? COLORS.secondary : COLORS.light;
+                const color = zona.score === 'Alto' ? '#2ecc71' : zona.score === 'Medio-Alto' ? '#f39c12' : '#95a5a6';
                 
                 const circle = L.circleMarker([zona.lat, zona.lon], {
                     radius: 20,
@@ -869,7 +868,7 @@
                 }).addTo(map);
                 
                 circle.bindPopup(`
-                    <b style="color: ${COLORS.primary};">🚀 ${zona.nombre}</b><br>
+                    <b>🚀 ${zona.nombre}</b><br>
                     Score de expansión: <b>${zona.score}</b>
                 `);
                 currentLayers.push(circle);
@@ -886,23 +885,24 @@
             `;
             
             document.getElementById('legend').innerHTML = `
-                <b style="color: ${COLORS.primary};">Leyenda - Uso Runni</b><br><br>
+                <b>Leyenda - Uso Runni</b><br><br>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.dark}"></div>
+                    <div class="legend-color" style="background: #e74c3c"></div>
                     <span>Alta actividad</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.primary}"></div>
+                    <div class="legend-color" style="background: #f39c12"></div>
                     <span>Actividad media</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.light}"></div>
+                    <div class="legend-color" style="background: #2ecc71"></div>
                     <span>Actividad baja</span>
                 </div>
-                <br>
-                <div class="legend-item">⚡ Estación actual</div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${COLORS.primary}; border-radius: 50%;"></div>
+                    <span>⚡ Estación actual</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2ecc71; border-radius: 50%;"></div>
                     <span>Zona expansión prioritaria</span>
                 </div>
             `;
