@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RUNNI - Monitoreo de Flota</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #FF6B35 0%, #F7931E 50%, #FF8C42 100%);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .logo span {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.online { background: #2ecc71; }
+        .status-dot.moving { background: #3498db; }
+        .status-dot.idle { background: #f39c12; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .main-container {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+        
+        .sidebar {
+            width: 320px;
+            background: #16213e;
+            overflow-y: auto;
+            border-right: 1px solid #0f3460;
+        }
+        
+        .sidebar-section {
+            padding: 15px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .sidebar-section h3 {
+            font-size: 0.9rem;
+            color: #FF6B35;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .bike-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .bike-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        
+        .bike-card:hover {
+            background: #0f3460;
+            border-left-color: #FF6B35;
+        }
+        
+        .bike-card.selected {
+            background: #0f3460;
+            border-left-color: #FF6B35;
+        }
+        
+        .bike-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .bike-id {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        .bike-status {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        .bike-status.en-ruta { background: #3498db; }
+        .bike-status.disponible { background: #2ecc71; }
+        .bike-status.en-espera { background: #f39c12; }
+        .bike-status.offline { background: #95a5a6; }
+        
+        .bike-details {
+            font-size: 0.8rem;
+            color: #a0a0a0;
+        }
+        
+        .bike-details span {
+            display: block;
+            margin: 3px 0;
+        }
+        
+        .battery-bar {
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .battery-level {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        
+        .battery-high { background: #2ecc71; }
+        .battery-medium { background: #f39c12; }
+        .battery-low { background: #e74c3c; }
+        
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+        
+        .stats-panel {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 1000;
+            min-width: 200px;
+            border: 1px solid #0f3460;
+        }
+        
+        .stats-panel h4 {
+            color: #FF6B35;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #FF6B35;
+        }
+        
+        .route-info {
+            position: absolute;
+            bottom: 20px;
+            left: 340px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            max-width: 400px;
+            border: 1px solid #0f3460;
+        }
+        
+        .route-info h4 {
+            color: #FF6B35;
+            margin-bottom: 10px;
+        }
+        
+        .route-info p {
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.5;
+        }
+        
+        .route-points {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+        
+        .route-point {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .route-arrow {
+            color: #FF6B35;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #0f3460;
+            background: transparent;
+            color: #fff;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background: #FF6B35;
+            border-color: #FF6B35;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #0f3460;
+            background: #1a1a2e;
+            color: white;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+        
+        .search-box::placeholder {
+            color: #666;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 12px 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-size: 0.8rem;
+            border: 1px solid #0f3460;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 0;
+        }
+        
+        .legend-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        /* API Status Banner */
+        .api-banner {
+            background: #f39c12;
+            color: #1a1a2e;
+            padding: 8px 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .api-banner a {
+            color: #1a1a2e;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="api-banner">
+        Modo Demo - Datos simulados. Pendiente integrar API de Runni.
+    </div>
+    
+    <div class="header">
+        <div class="logo">
+            <h1>RUNNI</h1>
+            <span>Monitoreo de Flota</span>
+        </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot online"></div>
+                <span id="countOnline">0</span> en ruta
+            </div>
+            <div class="status-item">
+                <div class="status-dot moving"></div>
+                <span id="countDisponible">0</span> disponibles
+            </div>
+            <div class="status-item">
+                <div class="status-dot idle"></div>
+                <span id="countEspera">0</span> en espera
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <input type="text" class="search-box" placeholder="Buscar bicicleta..." id="searchBike">
+                <div class="filters">
+                    <button class="filter-btn active" data-filter="todos">Todos</button>
+                    <button class="filter-btn" data-filter="en-ruta">En Ruta</button>
+                    <button class="filter-btn" data-filter="disponible">Disponible</button>
+                    <button class="filter-btn" data-filter="en-espera">En Espera</button>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Bicicletas Activas</h3>
+                <div class="bike-list" id="bikeList">
+                    <!-- Generado por JS -->
+                </div>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="stats-panel">
+            <h4>Resumen de Hoy</h4>
+            <div class="stat-row">
+                <span>Domicilios completados</span>
+                <span class="stat-value" id="statDomicilios">0</span>
+            </div>
+            <div class="stat-row">
+                <span>Distancia total</span>
+                <span class="stat-value" id="statDistancia">0 km</span>
+            </div>
+            <div class="stat-row">
+                <span>Tiempo promedio</span>
+                <span class="stat-value" id="statTiempo">0 min</span>
+            </div>
+            <div class="stat-row">
+                <span>Zona mas activa</span>
+                <span class="stat-value" id="statZona">-</span>
+            </div>
+        </div>
+        
+        <div class="route-info" id="routeInfo" style="display: none;">
+            <h4 id="routeTitle">Ruta Activa</h4>
+            <p id="routeDesc"></p>
+            <div class="route-points">
+                <div class="route-point">
+                    <span id="routeOrigen"></span>
+                </div>
+                <span class="route-arrow">--></span>
+                <div class="route-point">
+                    <span id="routeDestino"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #2ecc71;"></div>
+                <span>En ruta</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #3498db;"></div>
+                <span>Disponible</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #f39c12;"></div>
+                <span>En espera</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #FF6B35;"></div>
+                <span>Restaurante</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #9b59b6;"></div>
+                <span>Zona residencial</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // ==============================================================
+        // CONFIGURACION - Cuando llegue la API, modificar aqui
+        // ==============================================================
+        
+        const CONFIG = {
+            // URL de la API de Runni (pendiente)
+            API_URL: null, // 'https://api.runni.co/v1'
+            API_KEY: null,
+            
+            // Intervalo de actualizacion en ms
+            REFRESH_INTERVAL: 5000,
+            
+            // Centro del mapa
+            MAP_CENTER: [6.2442, -75.5812],
+            MAP_ZOOM: 13
+        };
+        
+        // ==============================================================
+        // DATOS SIMULADOS - Reemplazar con API real
+        // ==============================================================
+        
+        // Restaurantes reales del Valle de Aburra (origenes de pedidos)
+        const RESTAURANTES = [
+            { id: 'R01', nombre: 'Crepes & Waffles Poblado', lat: 6.2086, lon: -75.5680, zona: 'El Poblado' },
+            { id: 'R02', nombre: 'Mondongos El Poblado', lat: 6.2095, lon: -75.5665, zona: 'El Poblado' },
+            { id: 'R03', nombre: 'Hacienda Junin', lat: 6.2518, lon: -75.5636, zona: 'Centro' },
+            { id: 'R04', nombre: 'Burger King Laureles', lat: 6.2450, lon: -75.5890, zona: 'Laureles' },
+            { id: 'R05', nombre: 'El Corral Envigado', lat: 6.1752, lon: -75.5940, zona: 'Envigado' },
+            { id: 'R06', nombre: 'Frisby Sabaneta', lat: 6.1514, lon: -75.6160, zona: 'Sabaneta' },
+            { id: 'R07', nombre: 'Sandwich Qbano Estadio', lat: 6.2567, lon: -75.5894, zona: 'Estadio' },
+            { id: 'R08', nombre: 'Archies Oviedo', lat: 6.2000, lon: -75.5750, zona: 'El Poblado' },
+            { id: 'R09', nombre: 'Presto Bello', lat: 6.3389, lon: -75.5578, zona: 'Bello' },
+            { id: 'R10', nombre: 'McDonalds Puerta Norte', lat: 6.3318, lon: -75.5472, zona: 'Bello' },
+        ];
+        
+        // Zonas residenciales (destinos de domicilios)
+        const ZONAS_RESIDENCIALES = [
+            { id: 'ZR01', nombre: 'Manila / El Poblado', lat: 6.2050, lon: -75.5620, densidad: 'alta' },
+            { id: 'ZR02', nombre: 'Astorga / El Poblado', lat: 6.1980, lon: -75.5700, densidad: 'alta' },
+            { id: 'ZR03', nombre: 'Laureles Primer Parque', lat: 6.2460, lon: -75.5950, densidad: 'media' },
+            { id: 'ZR04', nombre: 'Envigado Zona Rosa', lat: 6.1720, lon: -75.5900, densidad: 'alta' },
+            { id: 'ZR05', nombre: 'Sabaneta Centro', lat: 6.1500, lon: -75.6140, densidad: 'media' },
+            { id: 'ZR06', nombre: 'Belen La Palma', lat: 6.2300, lon: -75.6050, densidad: 'media' },
+            { id: 'ZR07', nombre: 'Conquistadores', lat: 6.2520, lon: -75.5800, densidad: 'media' },
+            { id: 'ZR08', nombre: 'Boston', lat: 6.2580, lon: -75.5600, densidad: 'baja' },
+        ];
+        
+        // Estaciones Runni actuales
+        const ESTACIONES = [
+            { id: 'E01', nombre: 'Sede Socya Guayabal', lat: 6.2321, lon: -75.5815 },
+            { id: 'E02', nombre: 'Estacion Laureles', lat: 6.2441, lon: -75.5897 },
+            { id: 'E03', nombre: 'Estacion Olaya Herrera', lat: 6.2138, lon: -75.5852 },
+        ];
+        
+        // Generar bicicletas simuladas
+        function generarBicicletasSimuladas() {
+            const estados = ['en-ruta', 'disponible', 'en-espera'];
+            const bicicletas = [];
+            
+            for (let i = 1; i <= 25; i++) {
+                const estado = estados[Math.floor(Math.random() * estados.length)];
+                const estacionBase = ESTACIONES[Math.floor(Math.random() * ESTACIONES.length)];
+                
+                let lat, lon, restaurante = null, destino = null;
+                
+                if (estado === 'en-ruta') {
+                    // En camino entre restaurante y destino
+                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
+                    // Posicion intermedia
+                    const progreso = Math.random();
+                    lat = restaurante.lat + (destino.lat - restaurante.lat) * progreso;
+                    lon = restaurante.lon + (destino.lon - restaurante.lon) * progreso;
+                } else if (estado === 'disponible') {
+                    // Cerca de un restaurante esperando pedido
+                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    lat = restaurante.lat + (Math.random() - 0.5) * 0.002;
+                    lon = restaurante.lon + (Math.random() - 0.5) * 0.002;
+                } else {
+                    // En estacion
+                    lat = estacionBase.lat + (Math.random() - 0.5) * 0.001;
+                    lon = estacionBase.lon + (Math.random() - 0.5) * 0.001;
+                }
+                
+                bicicletas.push({
+                    id: `RUNNI-${String(i).padStart(3, '0')}`,
+                    lat: lat,
+                    lon: lon,
+                    estado: estado,
+                    bateria: Math.floor(Math.random() * 60) + 40,
+                    velocidad: estado === 'en-ruta' ? Math.floor(Math.random() * 15) + 10 : 0,
+                    domicilario: `Domiciliario ${i}`,
+                    restaurante: restaurante,
+                    destino: destino,
+                    estacion: estacionBase,
+                    ultimaActualizacion: new Date().toISOString(),
+                    domiciliosHoy: Math.floor(Math.random() * 12),
+                    distanciaHoy: Math.floor(Math.random() * 25) + 5
+                });
+            }
+            
+            return bicicletas;
+        }
+        
+        // ==============================================================
+        // FUNCION PARA API REAL - Descomentar cuando este disponible
+        // ==============================================================
+        
+        async function obtenerDatosAPI() {
+            /*
+            // Cuando tengas la API, descomenta esto:
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/bikes/positions`, {
+                    headers: {
+                        'Authorization': `Bearer ${CONFIG.API_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Error en API');
+                
+                const data = await response.json();
+                return data.bikes; // Ajustar segun estructura de la API
+                
+            } catch (error) {
+                console.error('Error obteniendo datos:', error);
+                return null;
+            }
+            */
+            
+            // Por ahora, datos simulados
+            return generarBicicletasSimuladas();
+        }
+        
+        // ==============================================================
+        // MAPA Y VISUALIZACION
+        // ==============================================================
+        
+        let map;
+        let bikeMarkers = {};
+        let routeLines = {};
+        let selectedBike = null;
+        let bicicletasData = [];
+        
+        function initMap() {
+            map = L.map('map').setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap © CARTO'
+            }).addTo(map);
+            
+            // Agregar restaurantes al mapa
+            RESTAURANTES.forEach(r => {
+                L.circleMarker([r.lat, r.lon], {
+                    radius: 8,
+                    fillColor: '#FF6B35',
+                    color: '#fff',
+                    weight: 1,
+                    fillOpacity: 0.7
+                }).addTo(map).bindPopup(`<b>${r.nombre}</b><br><small>${r.zona}</small>`);
+            });
+            
+            // Agregar zonas residenciales
+            ZONAS_RESIDENCIALES.forEach(z => {
+                const radius = z.densidad === 'alta' ? 12 : z.densidad === 'media' ? 9 : 6;
+                L.circleMarker([z.lat, z.lon], {
+                    radius: radius,
+                    fillColor: '#9b59b6',
+                    color: '#fff',
+                    weight: 1,
+                    fillOpacity: 0.4
+                }).addTo(map).bindPopup(`<b>${z.nombre}</b><br><small>Densidad: ${z.densidad}</small>`);
+            });
+            
+            // Agregar estaciones
+            ESTACIONES.forEach(e => {
+                L.marker([e.lat, e.lon], {
+                    icon: L.divIcon({
+                        className: 'station-marker',
+                        html: `<div style="
+                            background: #3498db;
+                            color: white;
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-size: 11px;
+                            font-weight: bold;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                        ">Estacion</div>`,
+                        iconSize: [60, 20],
+                        iconAnchor: [30, 10]
+                    })
+                }).addTo(map).bindPopup(`<b>${e.nombre}</b>`);
+            });
+        }
+        
+        function getBikeIcon(estado, bateria) {
+            const colores = {
+                'en-ruta': '#2ecc71',
+                'disponible': '#3498db',
+                'en-espera': '#f39c12',
+                'offline': '#95a5a6'
+            };
+            
+            const color = colores[estado] || '#95a5a6';
+            
+            return L.divIcon({
+                className: 'bike-marker',
+                html: `<div style="
+                    width: 30px;
+                    height: 30px;
+                    background: ${color};
+                    border: 2px solid white;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 14px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                ">🚲</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+        }
+        
+        function actualizarMapa(bicicletas) {
+            bicicletasData = bicicletas;
+            
+            // Limpiar marcadores anteriores
+            Object.values(bikeMarkers).forEach(m => map.removeLayer(m));
+            Object.values(routeLines).forEach(l => map.removeLayer(l));
+            bikeMarkers = {};
+            routeLines = {};
+            
+            bicicletas.forEach(bike => {
+                const marker = L.marker([bike.lat, bike.lon], {
+                    icon: getBikeIcon(bike.estado, bike.bateria)
+                }).addTo(map);
+                
+                marker.on('click', () => seleccionarBicicleta(bike.id));
+                
+                marker.bindPopup(`
+                    <b>${bike.id}</b><br>
+                    Estado: ${bike.estado}<br>
+                    Bateria: ${bike.bateria}%<br>
+                    ${bike.restaurante ? `Origen: ${bike.restaurante.nombre}` : ''}
+                `);
+                
+                bikeMarkers[bike.id] = marker;
+                
+                // Dibujar ruta si esta en camino
+                if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
+                    const line = L.polyline([
+                        [bike.restaurante.lat, bike.restaurante.lon],
+                        [bike.lat, bike.lon],
+                        [bike.destino.lat, bike.destino.lon]
+                    ], {
+                        color: '#2ecc71',
+                        weight: 3,
+                        opacity: 0.6,
+                        dashArray: '10, 10'
+                    }).addTo(map);
+                    
+                    routeLines[bike.id] = line;
+                }
+            });
+            
+            actualizarSidebar(bicicletas);
+            actualizarEstadisticas(bicicletas);
+        }
+        
+        function actualizarSidebar(bicicletas) {
+            const lista = document.getElementById('bikeList');
+            const filtro = document.querySelector('.filter-btn.active').dataset.filter;
+            const busqueda = document.getElementById('searchBike').value.toLowerCase();
+            
+            let filtradas = bicicletas;
+            
+            if (filtro !== 'todos') {
+                filtradas = bicicletas.filter(b => b.estado === filtro);
+            }
+            
+            if (busqueda) {
+                filtradas = filtradas.filter(b => 
+                    b.id.toLowerCase().includes(busqueda) ||
+                    b.domicilario.toLowerCase().includes(busqueda)
+                );
+            }
+            
+            lista.innerHTML = filtradas.map(bike => {
+                const batteriaClass = bike.bateria > 60 ? 'battery-high' : 
+                                     bike.bateria > 30 ? 'battery-medium' : 'battery-low';
+                
+                return `
+                    <div class="bike-card ${selectedBike === bike.id ? 'selected' : ''}" 
+                         onclick="seleccionarBicicleta('${bike.id}')">
+                        <div class="bike-header">
+                            <span class="bike-id">${bike.id}</span>
+                            <span class="bike-status ${bike.estado}">${bike.estado.replace('-', ' ')}</span>
+                        </div>
+                        <div class="bike-details">
+                            <span>${bike.domicilario}</span>
+                            <span>${bike.estado === 'en-ruta' && bike.restaurante ? 
+                                `${bike.restaurante.nombre} → ${bike.destino?.nombre || '...'}` : 
+                                bike.estacion.nombre}</span>
+                            <span>Hoy: ${bike.domiciliosHoy} domicilios | ${bike.distanciaHoy} km</span>
+                        </div>
+                        <div class="battery-bar">
+                            <div class="battery-level ${batteriaClass}" style="width: ${bike.bateria}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function actualizarEstadisticas(bicicletas) {
+            const enRuta = bicicletas.filter(b => b.estado === 'en-ruta').length;
+            const disponibles = bicicletas.filter(b => b.estado === 'disponible').length;
+            const enEspera = bicicletas.filter(b => b.estado === 'en-espera').length;
+            
+            document.getElementById('countOnline').textContent = enRuta;
+            document.getElementById('countDisponible').textContent = disponibles;
+            document.getElementById('countEspera').textContent = enEspera;
+            
+            const totalDomicilios = bicicletas.reduce((sum, b) => sum + b.domiciliosHoy, 0);
+            const totalDistancia = bicicletas.reduce((sum, b) => sum + b.distanciaHoy, 0);
+            const tiempoPromedio = Math.floor(Math.random() * 10) + 15; // Simulado
+            
+            // Zona mas activa
+            const zonaCount = {};
+            bicicletas.forEach(b => {
+                if (b.restaurante) {
+                    zonaCount[b.restaurante.zona] = (zonaCount[b.restaurante.zona] || 0) + 1;
+                }
+            });
+            const zonaMasActiva = Object.entries(zonaCount).sort((a, b) => b[1] - a[1])[0];
+            
+            document.getElementById('statDomicilios').textContent = totalDomicilios;
+            document.getElementById('statDistancia').textContent = `${totalDistancia} km`;
+            document.getElementById('statTiempo').textContent = `${tiempoPromedio} min`;
+            document.getElementById('statZona').textContent = zonaMasActiva ? zonaMasActiva[0] : '-';
+        }
+        
+        function seleccionarBicicleta(bikeId) {
+            selectedBike = bikeId;
+            const bike = bicicletasData.find(b => b.id === bikeId);
+            
+            if (!bike) return;
+            
+            // Centrar mapa
+            map.setView([bike.lat, bike.lon], 15);
+            
+            // Actualizar sidebar
+            document.querySelectorAll('.bike-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event?.target?.closest('.bike-card')?.classList.add('selected');
+            
+            // Mostrar info de ruta
+            const routeInfo = document.getElementById('routeInfo');
+            
+            if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
+                document.getElementById('routeTitle').textContent = `Ruta: ${bike.id}`;
+                document.getElementById('routeDesc').textContent = 
+                    `Domiciliario: ${bike.domicilario} | Velocidad: ${bike.velocidad} km/h`;
+                document.getElementById('routeOrigen').textContent = bike.restaurante.nombre;
+                document.getElementById('routeDestino').textContent = bike.destino.nombre;
+                routeInfo.style.display = 'block';
+            } else {
+                routeInfo.style.display = 'none';
+            }
+            
+            // Abrir popup
+            bikeMarkers[bikeId]?.openPopup();
+        }
+        
+        // ==============================================================
+        // EVENT LISTENERS
+        // ==============================================================
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            initMap();
+            
+            // Primera carga
+            const datos = await obtenerDatosAPI();
+            actualizarMapa(datos);
+            
+            // Actualizar cada X segundos
+            setInterval(async () => {
+                const datos = await obtenerDatosAPI();
+                actualizarMapa(datos);
+            }, CONFIG.REFRESH_INTERVAL);
+            
+            // Filtros
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    actualizarSidebar(bicicletasData);
+                });
+            });
+            
+            // Busqueda
+            document.getElementById('searchBike').addEventListener('input', () => {
+                actualizarSidebar(bicicletasData);
+            });
+        });
+    </script>
+</body>
+</html>
