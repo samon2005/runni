@@ -49,6 +49,28 @@
             opacity: 0.9;
         }
         
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .back-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
         .status-bar {
             display: flex;
             gap: 20px;
@@ -71,6 +93,7 @@
         .status-dot.online { background: #2ecc71; }
         .status-dot.moving { background: #3498db; }
         .status-dot.idle { background: #f39c12; }
+        .status-dot.offline { background: #e74c3c; }
         
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -84,7 +107,7 @@
         }
         
         .sidebar {
-            width: 300px;
+            width: 320px;
             background: #16213e;
             overflow-y: auto;
             border-right: 1px solid #0f3460;
@@ -111,6 +134,7 @@
             gap: 8px;
             flex: 1;
             overflow-y: auto;
+            padding: 10px 15px;
         }
         
         .bike-card {
@@ -145,14 +169,17 @@
         }
         
         .bike-status {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             padding: 3px 8px;
             border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
         }
         
-        .bike-status.en-ruta { background: #2ecc71; }
-        .bike-status.disponible { background: #3498db; }
-        .bike-status.en-espera { background: #f39c12; }
+        .bike-status.en-ruta { background: #2ecc71; color: white; }
+        .bike-status.disponible { background: #3498db; color: white; }
+        .bike-status.en-espera { background: #f39c12; color: white; }
+        .bike-status.offline { background: #e74c3c; color: white; }
         
         .bike-details {
             font-size: 0.8rem;
@@ -164,23 +191,41 @@
             margin: 3px 0;
         }
         
-        .battery-bar {
-            height: 4px;
-            background: #333;
-            border-radius: 2px;
+        .bike-details .highlight {
+            color: #FF6B35;
+            font-weight: 500;
+        }
+        
+        .battery-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             margin-top: 8px;
+        }
+        
+        .battery-bar {
+            flex: 1;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
             overflow: hidden;
         }
         
         .battery-level {
             height: 100%;
-            border-radius: 2px;
+            border-radius: 3px;
             transition: width 0.3s;
         }
         
         .battery-high { background: #2ecc71; }
         .battery-medium { background: #f39c12; }
         .battery-low { background: #e74c3c; }
+        
+        .battery-text {
+            font-size: 0.75rem;
+            color: #888;
+            min-width: 35px;
+        }
         
         #map {
             flex: 1;
@@ -196,20 +241,32 @@
             padding: 15px;
             border-radius: 10px;
             z-index: 1000;
-            min-width: 200px;
+            min-width: 220px;
             border: 1px solid #0f3460;
+            backdrop-filter: blur(10px);
         }
         
         .stats-panel h4 {
             color: #FF6B35;
             margin-bottom: 12px;
             font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background: #2ecc71;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
         }
         
         .stat-row {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
+            padding: 8px 0;
             font-size: 0.85rem;
             border-bottom: 1px solid #0f3460;
         }
@@ -233,6 +290,13 @@
             z-index: 1000;
             font-size: 0.8rem;
             border: 1px solid #0f3460;
+        }
+        
+        .legend-title {
+            color: #FF6B35;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
         }
         
         .legend-item {
@@ -285,59 +349,111 @@
             border-color: #FF6B35;
         }
         
-        .route-info {
+        .bike-info-panel {
             position: absolute;
             bottom: 20px;
-            left: 320px;
+            left: 340px;
             background: rgba(22, 33, 62, 0.95);
             padding: 15px 20px;
             border-radius: 10px;
             z-index: 1000;
-            max-width: 400px;
+            max-width: 350px;
             border: 1px solid #0f3460;
             display: none;
         }
         
-        .route-info h4 {
+        .bike-info-panel.visible {
+            display: block;
+        }
+        
+        .bike-info-panel h4 {
             color: #FF6B35;
             margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .route-info p {
+        .close-panel {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .close-panel:hover {
+            color: white;
+        }
+        
+        .bike-info-panel p {
             font-size: 0.85rem;
             color: #ccc;
-            line-height: 1.5;
+            line-height: 1.6;
+            margin: 5px 0;
         }
         
-        .route-points {
+        .bike-info-panel .label {
+            color: #888;
+        }
+        
+        .bike-info-panel .value {
+            color: white;
+            font-weight: 500;
+        }
+        
+        .route-display {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-top: 10px;
-            font-size: 0.85rem;
-        }
-        
-        .route-point {
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            padding: 10px;
+            background: rgba(255,107,53,0.1);
+            border-radius: 8px;
         }
         
         .route-arrow {
             color: #FF6B35;
+            font-size: 1.2rem;
         }
         
-        .error-message {
-            position: absolute;
-            top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #e74c3c;
+        .historico-btn {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: #FF6B35;
+            border: none;
             color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
-            z-index: 2000;
-            display: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        
+        .historico-btn:hover {
+            background: #e55a2b;
+        }
+        
+        .update-time {
+            font-size: 0.75rem;
+            color: #666;
+            text-align: center;
+            padding: 10px;
+            border-top: 1px solid #0f3460;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: absolute;
+                bottom: 0;
+                height: 40vh;
+                z-index: 1000;
+            }
+            .bike-info-panel {
+                left: 20px;
+                right: 20px;
+                max-width: none;
+            }
         }
     </style>
 </head>
@@ -345,48 +461,65 @@
     <div class="header">
         <div class="logo">
             <h1>RUNNI</h1>
-            <span>Monitoreo de Flota</span>
+            <span>Monitoreo de Flota en Tiempo Real</span>
         </div>
-        <div class="status-bar">
-            <div class="status-item">
-                <div class="status-dot online"></div>
-                <span id="countOnline">0</span> en ruta
+        <div class="header-actions">
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot online"></div>
+                    <span><span id="countEnRuta">0</span> en ruta</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot moving"></div>
+                    <span><span id="countDisponible">0</span> disponibles</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot idle"></div>
+                    <span><span id="countEspera">0</span> en espera</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot offline"></div>
+                    <span><span id="countOffline">0</span> offline</span>
+                </div>
             </div>
-            <div class="status-item">
-                <div class="status-dot moving"></div>
-                <span id="countDisponible">0</span> disponibles
-            </div>
-            <div class="status-item">
-                <div class="status-dot idle"></div>
-                <span id="countEspera">0</span> en espera
-            </div>
+            <a href="index.html" class="back-btn">Volver al Inicio</a>
         </div>
     </div>
     
     <div class="main-container">
         <div class="sidebar">
             <div class="sidebar-section">
-                <input type="text" class="search-box" placeholder="Buscar bicicleta..." id="searchBike">
+                <input type="text" class="search-box" placeholder="Buscar por ID o domiciliario..." id="searchBike">
                 <div class="filters">
                     <button class="filter-btn active" data-filter="todos">Todos</button>
                     <button class="filter-btn" data-filter="en-ruta">En Ruta</button>
                     <button class="filter-btn" data-filter="disponible">Disponible</button>
                     <button class="filter-btn" data-filter="en-espera">En Espera</button>
+                    <button class="filter-btn" data-filter="offline">Offline</button>
                 </div>
             </div>
             
-            <div class="sidebar-section" style="flex: 1; overflow: hidden; padding: 0;">
-                <h3 style="padding: 15px 15px 10px 15px;">Bicicletas Activas</h3>
-                <div class="bike-list" id="bikeList">
-                    <!-- Generado por JS -->
-                </div>
+            <div class="sidebar-section" style="padding: 10px 15px;">
+                <h3>Flota Activa</h3>
+            </div>
+            
+            <div class="bike-list" id="bikeList">
+                <!-- Generado por JS -->
+            </div>
+            
+            <div class="update-time">
+                Actualizado: <span id="lastUpdate">--:--:--</span>
             </div>
         </div>
         
         <div id="map"></div>
         
         <div class="stats-panel">
-            <h4>Resumen de Hoy</h4>
+            <h4><div class="live-indicator"></div> Resumen del Dia</h4>
+            <div class="stat-row">
+                <span>Total bicicletas</span>
+                <span class="stat-value" id="statTotal">0</span>
+            </div>
             <div class="stat-row">
                 <span>Domicilios completados</span>
                 <span class="stat-value" id="statDomicilios">0</span>
@@ -396,15 +529,20 @@
                 <span class="stat-value" id="statDistancia">0 km</span>
             </div>
             <div class="stat-row">
-                <span>Zona más activa</span>
+                <span>Tiempo promedio</span>
+                <span class="stat-value" id="statTiempo">0 min</span>
+            </div>
+            <div class="stat-row">
+                <span>Zona mas activa</span>
                 <span class="stat-value" id="statZona">-</span>
             </div>
         </div>
         
         <div class="legend">
+            <div class="legend-title">Estado de Bicicletas</div>
             <div class="legend-item">
                 <div class="legend-icon" style="background: #2ecc71;"></div>
-                <span>En ruta</span>
+                <span>En ruta (entregando)</span>
             </div>
             <div class="legend-item">
                 <div class="legend-icon" style="background: #3498db;"></div>
@@ -412,55 +550,100 @@
             </div>
             <div class="legend-item">
                 <div class="legend-icon" style="background: #f39c12;"></div>
-                <span>En espera</span>
+                <span>En espera (cargando)</span>
             </div>
             <div class="legend-item">
+                <div class="legend-icon" style="background: #e74c3c;"></div>
+                <span>Offline</span>
+            </div>
+            <div class="legend-item" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #0f3460;">
                 <div class="legend-icon" style="background: #FF6B35;"></div>
-                <span>Restaurante</span>
+                <span>Restaurante/Comercio</span>
             </div>
             <div class="legend-item">
                 <div class="legend-icon" style="background: #9b59b6;"></div>
-                <span>Zona residencial</span>
+                <span>Estacion Runni</span>
             </div>
         </div>
         
-        <div class="route-info" id="routeInfo">
-            <h4 id="routeTitle">Ruta Activa</h4>
-            <p id="routeDesc"></p>
-            <div class="route-points">
-                <span id="routeOrigen"></span>
+        <div class="bike-info-panel" id="bikeInfoPanel">
+            <h4>
+                <span id="infoBikeId">RUNNI-001</span>
+                <button class="close-panel" onclick="cerrarPanel()">&times;</button>
+            </h4>
+            <p><span class="label">Domiciliario:</span> <span class="value" id="infoDomiciliario">-</span></p>
+            <p><span class="label">Estado:</span> <span class="value" id="infoEstado">-</span></p>
+            <p><span class="label">Velocidad:</span> <span class="value" id="infoVelocidad">-</span></p>
+            <p><span class="label">Bateria:</span> <span class="value" id="infoBateria">-</span></p>
+            <p><span class="label">Domicilios hoy:</span> <span class="value" id="infoDomiciliosHoy">-</span></p>
+            <p><span class="label">Distancia hoy:</span> <span class="value" id="infoDistanciaHoy">-</span></p>
+            <p><span class="label">Ultima ubicacion:</span> <span class="value" id="infoUbicacion">-</span></p>
+            <div class="route-display" id="routeDisplay" style="display: none;">
+                <span id="routeOrigen">Origen</span>
                 <span class="route-arrow">→</span>
-                <span id="routeDestino"></span>
+                <span id="routeDestino">Destino</span>
             </div>
+            <button class="historico-btn" onclick="verHistorico()">Ver Historico de Rutas</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ============================================================
-        // DATOS SIMULADOS
+        // DATOS SIMULADOS - FLOTA DE BICICLETAS RUNNI
+        // Estos datos simulan la informacion que vendra de la API
         // ============================================================
         
+        // Restaurantes y comercios del Valle de Aburra
         const RESTAURANTES = [
             { id: 'R01', nombre: 'Crepes & Waffles Poblado', lat: 6.2086, lon: -75.5680, zona: 'El Poblado' },
             { id: 'R02', nombre: 'Mondongos El Poblado', lat: 6.2095, lon: -75.5665, zona: 'El Poblado' },
-            { id: 'R03', nombre: 'Hacienda Junin', lat: 6.2518, lon: -75.5636, zona: 'Centro' },
+            { id: 'R03', nombre: 'Hacienda Junin Centro', lat: 6.2518, lon: -75.5636, zona: 'Centro' },
             { id: 'R04', nombre: 'Burger King Laureles', lat: 6.2450, lon: -75.5890, zona: 'Laureles' },
             { id: 'R05', nombre: 'El Corral Envigado', lat: 6.1752, lon: -75.5940, zona: 'Envigado' },
             { id: 'R06', nombre: 'Frisby Sabaneta', lat: 6.1514, lon: -75.6160, zona: 'Sabaneta' },
+            { id: 'R07', nombre: 'Sandwich Qbano Estadio', lat: 6.2567, lon: -75.5894, zona: 'Estadio' },
+            { id: 'R08', nombre: 'Archies Oviedo', lat: 6.2000, lon: -75.5750, zona: 'El Poblado' },
+            { id: 'R09', nombre: 'Presto Bello', lat: 6.3389, lon: -75.5578, zona: 'Bello' },
+            { id: 'R10', nombre: 'McDonalds Puerta Norte', lat: 6.3318, lon: -75.5472, zona: 'Bello' },
+            { id: 'R11', nombre: 'Jeno Pizza Laureles', lat: 6.2470, lon: -75.5920, zona: 'Laureles' },
+            { id: 'R12', nombre: 'Wok Santafe', lat: 6.2030, lon: -75.5740, zona: 'El Poblado' },
+            { id: 'R13', nombre: 'La Provincia Provenza', lat: 6.2100, lon: -75.5690, zona: 'El Poblado' },
+            { id: 'R14', nombre: 'Buffalo Wings Tesoro', lat: 6.1980, lon: -75.5670, zona: 'El Poblado' },
+            { id: 'R15', nombre: 'Dominos Pizza Envigado', lat: 6.1760, lon: -75.5920, zona: 'Envigado' },
         ];
         
+        // Zonas residenciales (destinos de domicilios)
         const ZONAS_RESIDENCIALES = [
-            { id: 'ZR01', nombre: 'Manila / El Poblado', lat: 6.2050, lon: -75.5620, densidad: 'alta' },
-            { id: 'ZR02', nombre: 'Astorga / El Poblado', lat: 6.1980, lon: -75.5700, densidad: 'alta' },
-            { id: 'ZR03', nombre: 'Laureles Primer Parque', lat: 6.2460, lon: -75.5950, densidad: 'media' },
-            { id: 'ZR04', nombre: 'Envigado Zona Rosa', lat: 6.1720, lon: -75.5900, densidad: 'alta' },
+            { id: 'ZR01', nombre: 'Manila', lat: 6.2050, lon: -75.5620, zona: 'El Poblado' },
+            { id: 'ZR02', nombre: 'Astorga', lat: 6.1980, lon: -75.5700, zona: 'El Poblado' },
+            { id: 'ZR03', nombre: 'Primer Parque Laureles', lat: 6.2460, lon: -75.5950, zona: 'Laureles' },
+            { id: 'ZR04', nombre: 'Zona Rosa Envigado', lat: 6.1720, lon: -75.5900, zona: 'Envigado' },
+            { id: 'ZR05', nombre: 'Conquistadores', lat: 6.2520, lon: -75.5800, zona: 'Laureles' },
+            { id: 'ZR06', nombre: 'Belen La Palma', lat: 6.2300, lon: -75.6050, zona: 'Belen' },
+            { id: 'ZR07', nombre: 'Boston', lat: 6.2580, lon: -75.5600, zona: 'Centro' },
+            { id: 'ZR08', nombre: 'Sabaneta Centro', lat: 6.1500, lon: -75.6140, zona: 'Sabaneta' },
+            { id: 'ZR09', nombre: 'La Frontera', lat: 6.1950, lon: -75.5780, zona: 'El Poblado' },
+            { id: 'ZR10', nombre: 'Cabanas Bello', lat: 6.3450, lon: -75.5620, zona: 'Bello' },
         ];
         
+        // Estaciones Runni
         const ESTACIONES = [
-            { id: 'E01', nombre: 'Sede Socya Guayabal', lat: 6.2321, lon: -75.5815 },
-            { id: 'E02', nombre: 'Estación Laureles', lat: 6.2441, lon: -75.5897 },
-            { id: 'E03', nombre: 'Estación Olaya Herrera', lat: 6.2138, lon: -75.5852 },
+            { id: 'E01', nombre: 'Sede Socya Guayabal', lat: 6.2321, lon: -75.5815, tipo: 'sede_principal' },
+            { id: 'E02', nombre: 'Estacion Laureles', lat: 6.2441, lon: -75.5897, tipo: 'estacion' },
+            { id: 'E03', nombre: 'Estacion Olaya Herrera', lat: 6.2138, lon: -75.5852, tipo: 'estacion' },
+        ];
+        
+        // Nombres de domiciliarios
+        const DOMICILIARIOS = [
+            'Carlos Ramirez', 'Juan Martinez', 'Andres Garcia', 'Luis Hernandez',
+            'Pedro Sanchez', 'Miguel Lopez', 'David Rodriguez', 'Jorge Gomez',
+            'Felipe Diaz', 'Santiago Moreno', 'Daniel Castro', 'Alejandro Ruiz',
+            'Sebastian Torres', 'Nicolas Vargas', 'Camilo Restrepo', 'Julian Ospina',
+            'Mateo Arias', 'Samuel Valencia', 'Esteban Mejia', 'Tomas Cardona',
+            'Pablo Giraldo', 'Diego Munoz', 'Oscar Perez', 'Ivan Salazar',
+            'Ricardo Velez', 'Fernando Parra', 'Gustavo Marin', 'Hernan Duque',
+            'Jaime Calle', 'Robinson Agudelo'
         ];
         
         // ============================================================
@@ -472,79 +655,212 @@
         let routeLines = {};
         let selectedBike = null;
         let bicicletasData = [];
+        let historicoData = {};
+        let updateInterval;
         
         // ============================================================
-        // FUNCIONES AUXILIARES
+        // GENERADOR DE DATOS SIMULADOS
         // ============================================================
         
-        function generarBicicletasSimuladas() {
-            const estados = ['en-ruta', 'disponible', 'en-espera'];
+        // Generar flota inicial de bicicletas (se mantiene consistente)
+        function generarFlotaInicial() {
             const bicicletas = [];
+            const numBicicletas = 30; // Flota de 30 bicicletas
             
-            for (let i = 1; i <= 15; i++) {
-                const estado = estados[Math.floor(Math.random() * estados.length)];
-                const restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
-                const destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
-                const estacion = ESTACIONES[Math.floor(Math.random() * ESTACIONES.length)];
+            for (let i = 1; i <= numBicicletas; i++) {
+                const id = `RUNNI-${String(i).padStart(3, '0')}`;
                 
-                let lat, lon;
+                // Asignar domiciliario fijo
+                const domiciliario = DOMICILIARIOS[i - 1] || `Domiciliario ${i}`;
                 
-                if (estado === 'en-ruta') {
-                    const progreso = Math.random();
-                    lat = restaurante.lat + (destino.lat - restaurante.lat) * progreso;
-                    lon = restaurante.lon + (destino.lon - restaurante.lon) * progreso;
-                } else if (estado === 'disponible') {
-                    lat = restaurante.lat + (Math.random() - 0.5) * 0.002;
-                    lon = restaurante.lon + (Math.random() - 0.5) * 0.002;
-                } else {
-                    lat = estacion.lat + (Math.random() - 0.5) * 0.001;
-                    lon = estacion.lon + (Math.random() - 0.5) * 0.001;
-                }
+                // Generar historico de los ultimos 3 meses
+                historicoData[id] = generarHistoricoBicicleta(id);
                 
                 bicicletas.push({
-                    id: `RUNNI-${String(i).padStart(3, '0')}`,
-                    lat, lon, estado,
-                    bateria: Math.floor(Math.random() * 60) + 40,
-                    velocidad: estado === 'en-ruta' ? Math.floor(Math.random() * 15) + 10 : 0,
-                    domiciliario: `Domiciliario ${i}`,
-                    restaurante: estado !== 'en-espera' ? restaurante : null,
-                    destino: estado === 'en-ruta' ? destino : null,
-                    estacion,
+                    id,
+                    domiciliario,
+                    domiciliarioId: `DOM-${String(i).padStart(3, '0')}`,
+                    // Datos que se actualizaran en tiempo real
+                    lat: 0,
+                    lon: 0,
+                    estado: 'disponible',
+                    bateria: 100,
+                    velocidad: 0,
+                    restaurante: null,
+                    destino: null,
+                    estacion: ESTACIONES[Math.floor(Math.random() * ESTACIONES.length)],
                     timestamp: new Date().toISOString(),
-                    domiciliosHoy: Math.floor(Math.random() * 12),
-                    distanciaHoy: Math.floor(Math.random() * 25) + 5
+                    domiciliosHoy: 0,
+                    distanciaHoy: 0,
+                    tiempoPromedioEntrega: 0,
+                    ultimaZona: ''
                 });
             }
             
             return bicicletas;
         }
         
+        // Generar historico de rutas de los ultimos 3 meses
+        function generarHistoricoBicicleta(bikeId) {
+            const historico = [];
+            const hoy = new Date();
+            
+            // Generar datos de los ultimos 90 dias
+            for (let dia = 0; dia < 90; dia++) {
+                const fecha = new Date(hoy);
+                fecha.setDate(fecha.getDate() - dia);
+                
+                // Entre 5 y 15 domicilios por dia
+                const numDomicilios = Math.floor(Math.random() * 11) + 5;
+                const rutas = [];
+                
+                for (let j = 0; j < numDomicilios; j++) {
+                    const restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    const destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
+                    
+                    const horaInicio = 8 + Math.floor(Math.random() * 12); // Entre 8am y 8pm
+                    const minutoInicio = Math.floor(Math.random() * 60);
+                    const duracion = Math.floor(Math.random() * 20) + 10; // 10-30 minutos
+                    
+                    rutas.push({
+                        origen: {
+                            nombre: restaurante.nombre,
+                            lat: restaurante.lat,
+                            lon: restaurante.lon,
+                            zona: restaurante.zona
+                        },
+                        destino: {
+                            nombre: destino.nombre,
+                            lat: destino.lat,
+                            lon: destino.lon,
+                            zona: destino.zona
+                        },
+                        horaInicio: `${String(horaInicio).padStart(2, '0')}:${String(minutoInicio).padStart(2, '0')}`,
+                        duracionMin: duracion,
+                        distanciaKm: (Math.random() * 5 + 1).toFixed(2)
+                    });
+                }
+                
+                historico.push({
+                    fecha: fecha.toISOString().split('T')[0],
+                    totalDomicilios: numDomicilios,
+                    totalDistanciaKm: rutas.reduce((sum, r) => sum + parseFloat(r.distanciaKm), 0).toFixed(2),
+                    tiempoPromedioMin: Math.floor(rutas.reduce((sum, r) => sum + r.duracionMin, 0) / numDomicilios),
+                    rutas
+                });
+            }
+            
+            return historico;
+        }
+        
+        // Actualizar posiciones en tiempo real (simula movimiento)
+        function actualizarPosicionesEnTiempoReal(bicicletas) {
+            const estados = ['en-ruta', 'disponible', 'en-espera', 'offline'];
+            const pesos = [0.45, 0.30, 0.15, 0.10]; // 45% en ruta, 30% disponible, 15% espera, 10% offline
+            
+            return bicicletas.map(bike => {
+                // Decidir estado basado en probabilidades
+                const rand = Math.random();
+                let estado;
+                let acumulado = 0;
+                for (let i = 0; i < estados.length; i++) {
+                    acumulado += pesos[i];
+                    if (rand < acumulado) {
+                        estado = estados[i];
+                        break;
+                    }
+                }
+                
+                let lat, lon, restaurante = null, destino = null, velocidad = 0;
+                
+                if (estado === 'en-ruta') {
+                    // En ruta: entre un restaurante y un destino
+                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
+                    const progreso = Math.random();
+                    lat = restaurante.lat + (destino.lat - restaurante.lat) * progreso;
+                    lon = restaurante.lon + (destino.lon - restaurante.lon) * progreso;
+                    velocidad = Math.floor(Math.random() * 15) + 12; // 12-27 km/h
+                    
+                } else if (estado === 'disponible') {
+                    // Disponible: cerca de un restaurante
+                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    lat = restaurante.lat + (Math.random() - 0.5) * 0.003;
+                    lon = restaurante.lon + (Math.random() - 0.5) * 0.003;
+                    velocidad = 0;
+                    
+                } else if (estado === 'en-espera') {
+                    // En espera: en una estacion
+                    const estacion = bike.estacion;
+                    lat = estacion.lat + (Math.random() - 0.5) * 0.001;
+                    lon = estacion.lon + (Math.random() - 0.5) * 0.001;
+                    velocidad = 0;
+                    
+                } else {
+                    // Offline: ultima posicion conocida o estacion
+                    const estacion = bike.estacion;
+                    lat = estacion.lat + (Math.random() - 0.5) * 0.002;
+                    lon = estacion.lon + (Math.random() - 0.5) * 0.002;
+                    velocidad = 0;
+                }
+                
+                // Calcular domicilios y distancia del dia
+                const historicoHoy = historicoData[bike.id]?.[0];
+                const domiciliosHoy = historicoHoy ? Math.floor(historicoHoy.totalDomicilios * (new Date().getHours() / 24)) : Math.floor(Math.random() * 12);
+                const distanciaHoy = historicoHoy ? (parseFloat(historicoHoy.totalDistanciaKm) * (new Date().getHours() / 24)).toFixed(1) : (Math.random() * 30 + 5).toFixed(1);
+                
+                return {
+                    ...bike,
+                    lat,
+                    lon,
+                    estado,
+                    bateria: estado === 'offline' ? Math.floor(Math.random() * 20) : Math.floor(Math.random() * 50) + 50,
+                    velocidad,
+                    restaurante,
+                    destino,
+                    timestamp: new Date().toISOString(),
+                    domiciliosHoy,
+                    distanciaHoy: parseFloat(distanciaHoy),
+                    tiempoPromedioEntrega: historicoHoy?.tiempoPromedioMin || Math.floor(Math.random() * 10) + 15,
+                    ultimaZona: restaurante?.zona || bike.estacion.nombre
+                };
+            });
+        }
+        
+        // ============================================================
+        // FUNCIONES DEL MAPA
+        // ============================================================
+        
         function getBikeIcon(estado) {
             const colores = {
                 'en-ruta': '#2ecc71',
                 'disponible': '#3498db',
-                'en-espera': '#f39c12'
+                'en-espera': '#f39c12',
+                'offline': '#e74c3c'
             };
             
             const color = colores[estado] || '#95a5a6';
+            const opacity = estado === 'offline' ? '0.5' : '1';
             
             return L.divIcon({
                 className: 'bike-marker',
                 html: `<div style="
-                    width: 32px;
-                    height: 32px;
+                    width: 36px;
+                    height: 36px;
                     background: ${color};
                     border: 3px solid white;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 16px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    font-size: 18px;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
                     cursor: pointer;
-                ">🚲</div>`,
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
+                    opacity: ${opacity};
+                    transition: transform 0.2s;
+                " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">🚲</div>`,
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
             });
         }
         
@@ -561,44 +877,51 @@
             bikeMarkers = {};
             routeLines = {};
             
-            // Agregar nuevos marcadores
+            // Agregar marcadores de bicicletas
             bicicletas.forEach(bike => {
-                const marker = L.marker([bike.lat, bike.lon], {
-                    icon: getBikeIcon(bike.estado)
-                }).addTo(map);
-                
-                marker.on('click', () => seleccionarBicicleta(bike.id));
-                
-                marker.bindPopup(`
-                    <div style="min-width: 150px;">
-                        <b>${bike.id}</b><br>
-                        Estado: <strong>${bike.estado.replace('-', ' ')}</strong><br>
-                        Batería: ${bike.bateria}%<br>
-                        ${bike.restaurante ? `De: ${bike.restaurante.nombre}` : ''}
-                    </div>
-                `);
-                
-                bikeMarkers[bike.id] = marker;
-                
-                // Ruta visual si está en camino
-                if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
-                    const line = L.polyline([
-                        [bike.restaurante.lat, bike.restaurante.lon],
-                        [bike.lat, bike.lon],
-                        [bike.destino.lat, bike.destino.lon]
-                    ], {
-                        color: '#2ecc71',
-                        weight: 2,
-                        opacity: 0.6,
-                        dashArray: '5, 5'
+                if (bike.lat && bike.lon) {
+                    const marker = L.marker([bike.lat, bike.lon], {
+                        icon: getBikeIcon(bike.estado)
                     }).addTo(map);
                     
-                    routeLines[bike.id] = line;
+                    marker.on('click', () => seleccionarBicicleta(bike.id));
+                    
+                    const estadoTexto = bike.estado.replace('-', ' ').toUpperCase();
+                    marker.bindPopup(`
+                        <div style="min-width: 180px; font-family: 'Segoe UI', sans-serif;">
+                            <div style="font-weight: bold; font-size: 14px; color: #FF6B35; margin-bottom: 8px;">${bike.id}</div>
+                            <div style="margin-bottom: 5px;"><strong>Domiciliario:</strong> ${bike.domiciliario}</div>
+                            <div style="margin-bottom: 5px;"><strong>Estado:</strong> ${estadoTexto}</div>
+                            <div style="margin-bottom: 5px;"><strong>Bateria:</strong> ${bike.bateria}%</div>
+                            ${bike.velocidad > 0 ? `<div style="margin-bottom: 5px;"><strong>Velocidad:</strong> ${bike.velocidad} km/h</div>` : ''}
+                            ${bike.restaurante ? `<div style="margin-bottom: 5px;"><strong>Desde:</strong> ${bike.restaurante.nombre}</div>` : ''}
+                            ${bike.destino ? `<div><strong>Hacia:</strong> ${bike.destino.nombre}</div>` : ''}
+                        </div>
+                    `);
+                    
+                    bikeMarkers[bike.id] = marker;
+                    
+                    // Dibujar ruta si esta en camino
+                    if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
+                        const line = L.polyline([
+                            [bike.restaurante.lat, bike.restaurante.lon],
+                            [bike.lat, bike.lon],
+                            [bike.destino.lat, bike.destino.lon]
+                        ], {
+                            color: '#2ecc71',
+                            weight: 3,
+                            opacity: 0.7,
+                            dashArray: '8, 8'
+                        }).addTo(map);
+                        
+                        routeLines[bike.id] = line;
+                    }
                 }
             });
             
             actualizarSidebar(bicicletas);
             actualizarEstadisticas(bicicletas);
+            actualizarHoraActualizacion();
         }
         
         function actualizarSidebar(bicicletas) {
@@ -606,10 +929,10 @@
             const filtro = document.querySelector('.filter-btn.active')?.dataset.filter || 'todos';
             const busqueda = document.getElementById('searchBike').value.toLowerCase();
             
-            let filtradas = bicicletas;
+            let filtradas = [...bicicletas];
             
             if (filtro !== 'todos') {
-                filtradas = bicicletas.filter(b => b.estado === filtro);
+                filtradas = filtradas.filter(b => b.estado === filtro);
             }
             
             if (busqueda) {
@@ -619,53 +942,79 @@
                 );
             }
             
+            // Ordenar: en ruta primero, luego disponibles, etc.
+            const ordenEstado = { 'en-ruta': 0, 'disponible': 1, 'en-espera': 2, 'offline': 3 };
+            filtradas.sort((a, b) => ordenEstado[a.estado] - ordenEstado[b.estado]);
+            
             lista.innerHTML = filtradas.map(bike => {
                 const batteriaClass = bike.bateria > 60 ? 'battery-high' : 
                                      bike.bateria > 30 ? 'battery-medium' : 'battery-low';
+                const estadoTexto = bike.estado.replace('-', ' ');
                 
                 return `
                     <div class="bike-card ${selectedBike === bike.id ? 'selected' : ''}" 
                          onclick="seleccionarBicicleta('${bike.id}')">
                         <div class="bike-header">
                             <span class="bike-id">${bike.id}</span>
-                            <span class="bike-status ${bike.estado}">${bike.estado.replace('-', ' ')}</span>
+                            <span class="bike-status ${bike.estado}">${estadoTexto}</span>
                         </div>
                         <div class="bike-details">
                             <span>${bike.domiciliario}</span>
-                            <span>Hoy: ${bike.domiciliosHoy} domicilios</span>
-                            <span>${bike.distanciaHoy} km recorridos</span>
+                            <span>Hoy: <span class="highlight">${bike.domiciliosHoy} domicilios</span> | ${bike.distanciaHoy} km</span>
+                            <span>${bike.ultimaZona ? `Zona: ${bike.ultimaZona}` : ''}</span>
+                            ${bike.velocidad > 0 ? `<span class="highlight">${bike.velocidad} km/h</span>` : ''}
                         </div>
-                        <div class="battery-bar">
-                            <div class="battery-level ${batteriaClass}" style="width: ${bike.bateria}%"></div>
+                        <div class="battery-container">
+                            <div class="battery-bar">
+                                <div class="battery-level ${batteriaClass}" style="width: ${bike.bateria}%"></div>
+                            </div>
+                            <span class="battery-text">${bike.bateria}%</span>
                         </div>
                     </div>
                 `;
             }).join('');
+            
+            // Si no hay resultados
+            if (filtradas.length === 0) {
+                lista.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No se encontraron bicicletas</div>';
+            }
         }
         
         function actualizarEstadisticas(bicicletas) {
             const enRuta = bicicletas.filter(b => b.estado === 'en-ruta').length;
             const disponibles = bicicletas.filter(b => b.estado === 'disponible').length;
             const enEspera = bicicletas.filter(b => b.estado === 'en-espera').length;
+            const offline = bicicletas.filter(b => b.estado === 'offline').length;
             
-            document.getElementById('countOnline').textContent = enRuta;
+            document.getElementById('countEnRuta').textContent = enRuta;
             document.getElementById('countDisponible').textContent = disponibles;
             document.getElementById('countEspera').textContent = enEspera;
+            document.getElementById('countOffline').textContent = offline;
+            
+            document.getElementById('statTotal').textContent = bicicletas.length;
             
             const totalDomicilios = bicicletas.reduce((sum, b) => sum + b.domiciliosHoy, 0);
             const totalDistancia = bicicletas.reduce((sum, b) => sum + b.distanciaHoy, 0);
+            const tiempoPromedio = Math.round(bicicletas.reduce((sum, b) => sum + b.tiempoPromedioEntrega, 0) / bicicletas.length);
             
+            // Contar zonas
             const zonaCount = {};
             bicicletas.forEach(b => {
-                if (b.restaurante) {
-                    zonaCount[b.restaurante.zona] = (zonaCount[b.restaurante.zona] || 0) + 1;
+                if (b.ultimaZona) {
+                    zonaCount[b.ultimaZona] = (zonaCount[b.ultimaZona] || 0) + 1;
                 }
             });
             const zonaMasActiva = Object.entries(zonaCount).sort((a, b) => b[1] - a[1])[0];
             
             document.getElementById('statDomicilios').textContent = totalDomicilios;
-            document.getElementById('statDistancia').textContent = `${totalDistancia} km`;
+            document.getElementById('statDistancia').textContent = `${totalDistancia.toFixed(1)} km`;
+            document.getElementById('statTiempo').textContent = `${tiempoPromedio} min`;
             document.getElementById('statZona').textContent = zonaMasActiva ? zonaMasActiva[0] : '-';
+        }
+        
+        function actualizarHoraActualizacion() {
+            const ahora = new Date();
+            document.getElementById('lastUpdate').textContent = ahora.toLocaleTimeString('es-CO');
         }
         
         function seleccionarBicicleta(bikeId) {
@@ -674,41 +1023,90 @@
             
             if (!bike || !map) return;
             
-            try {
-                map.setView([bike.lat, bike.lon], 15);
-                if (bikeMarkers[bikeId]) {
-                    bikeMarkers[bikeId].openPopup();
-                }
-            } catch(e) {
-                console.error('Error seleccionando bicicleta:', e);
+            // Centrar mapa
+            map.setView([bike.lat, bike.lon], 15);
+            
+            // Abrir popup
+            if (bikeMarkers[bikeId]) {
+                bikeMarkers[bikeId].openPopup();
             }
             
+            // Mostrar panel de info
+            mostrarPanelBicicleta(bike);
+            
+            // Actualizar sidebar
             actualizarSidebar(bicicletasData);
         }
         
+        function mostrarPanelBicicleta(bike) {
+            const panel = document.getElementById('bikeInfoPanel');
+            
+            document.getElementById('infoBikeId').textContent = bike.id;
+            document.getElementById('infoDomiciliario').textContent = bike.domiciliario;
+            document.getElementById('infoEstado').textContent = bike.estado.replace('-', ' ').toUpperCase();
+            document.getElementById('infoVelocidad').textContent = `${bike.velocidad} km/h`;
+            document.getElementById('infoBateria').textContent = `${bike.bateria}%`;
+            document.getElementById('infoDomiciliosHoy').textContent = bike.domiciliosHoy;
+            document.getElementById('infoDistanciaHoy').textContent = `${bike.distanciaHoy} km`;
+            document.getElementById('infoUbicacion').textContent = bike.ultimaZona || 'Desconocida';
+            
+            // Mostrar ruta si esta en camino
+            const routeDisplay = document.getElementById('routeDisplay');
+            if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
+                document.getElementById('routeOrigen').textContent = bike.restaurante.nombre;
+                document.getElementById('routeDestino').textContent = bike.destino.nombre;
+                routeDisplay.style.display = 'flex';
+            } else {
+                routeDisplay.style.display = 'none';
+            }
+            
+            panel.classList.add('visible');
+        }
+        
+        function cerrarPanel() {
+            document.getElementById('bikeInfoPanel').classList.remove('visible');
+            selectedBike = null;
+            actualizarSidebar(bicicletasData);
+        }
+        
+        function verHistorico() {
+            if (!selectedBike) return;
+            
+            const historico = historicoData[selectedBike];
+            if (historico && historico.length > 0) {
+                const ultimos7 = historico.slice(0, 7);
+                let mensaje = `Historico de ${selectedBike} (ultimos 7 dias):\n\n`;
+                
+                ultimos7.forEach(dia => {
+                    mensaje += `${dia.fecha}: ${dia.totalDomicilios} domicilios, ${dia.totalDistanciaKm} km\n`;
+                });
+                
+                alert(mensaje);
+            }
+        }
+        
         // ============================================================
-        // INICIALIZACIÓN
+        // INICIALIZACION
         // ============================================================
         
         function initMap() {
             try {
-                // Crear mapa
                 map = L.map('map', {
                     center: [6.2442, -75.5812],
                     zoom: 13,
-                    scrollWheelZoom: true
+                    zoomControl: true
                 });
                 
-                // Capa base
+                // Capa base oscura
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '© OpenStreetMap © CARTO',
+                    attribution: '&copy; OpenStreetMap &copy; CARTO',
                     maxZoom: 19
                 }).addTo(map);
                 
-                // Agregar restaurantes
+                // Agregar marcadores de restaurantes
                 RESTAURANTES.forEach(r => {
                     L.circleMarker([r.lat, r.lon], {
-                        radius: 8,
+                        radius: 7,
                         fillColor: '#FF6B35',
                         color: '#fff',
                         weight: 2,
@@ -716,69 +1114,63 @@
                     }).addTo(map).bindPopup(`<b>${r.nombre}</b><br><small>${r.zona}</small>`);
                 });
                 
-                // Agregar zonas residenciales
-                ZONAS_RESIDENCIALES.forEach(z => {
-                    L.circleMarker([z.lat, z.lon], {
-                        radius: 10,
-                        fillColor: '#9b59b6',
-                        color: '#fff',
-                        weight: 1,
-                        fillOpacity: 0.4
-                    }).addTo(map).bindPopup(`<b>${z.nombre}</b><br><small>${z.densidad}</small>`);
-                });
-                
-                // Agregar estaciones
+                // Agregar estaciones Runni
                 ESTACIONES.forEach(e => {
                     L.marker([e.lat, e.lon], {
                         icon: L.divIcon({
                             html: `<div style="
-                                background: #3498db;
+                                background: linear-gradient(135deg, #9b59b6, #8e44ad);
                                 color: white;
-                                padding: 4px 8px;
-                                border-radius: 4px;
+                                padding: 6px 10px;
+                                border-radius: 6px;
                                 font-size: 11px;
                                 font-weight: bold;
                                 white-space: nowrap;
-                                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-                            ">E</div>`,
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                                border: 2px solid white;
+                            ">⚡ ${e.tipo === 'sede_principal' ? 'SEDE' : 'EST'}</div>`,
+                            iconSize: [60, 25],
+                            iconAnchor: [30, 12]
                         })
-                    }).addTo(map).bindPopup(`<b>${e.nombre}</b><br><small>Estación</small>`);
+                    }).addTo(map).bindPopup(`<b>${e.nombre}</b><br><small>Estacion Runni</small>`);
                 });
                 
-                console.log('✅ Mapa inicializado correctamente');
+                console.log('Mapa inicializado correctamente');
                 return true;
+                
             } catch (error) {
-                console.error('❌ Error inicializando mapa:', error);
+                console.error('Error inicializando mapa:', error);
                 return false;
             }
         }
         
         // ============================================================
-        // EJECUTAR AL CARGAR LA PÁGINA
+        // INICIO DE LA APLICACION
         // ============================================================
         
-        window.addEventListener('load', async () => {
-            console.log('Inicializando...');
+        window.addEventListener('load', () => {
+            console.log('Iniciando Monitoreo de Flota RUNNI...');
             
-            const mapOk = initMap();
-            if (!mapOk) {
+            // Inicializar mapa
+            if (!initMap()) {
                 console.error('No se pudo inicializar el mapa');
                 return;
             }
             
-            // Primera carga
-            const datos = generarBicicletasSimuladas();
-            actualizarMapa(datos);
+            // Generar flota inicial
+            let flota = generarFlotaInicial();
+            
+            // Primera actualizacion
+            flota = actualizarPosicionesEnTiempoReal(flota);
+            actualizarMapa(flota);
             
             // Actualizar cada 5 segundos
-            setInterval(() => {
-                const datos = generarBicicletasSimuladas();
-                actualizarMapa(datos);
+            updateInterval = setInterval(() => {
+                flota = actualizarPosicionesEnTiempoReal(flota);
+                actualizarMapa(flota);
             }, 5000);
             
-            // Event listeners
+            // Event listeners para filtros
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -787,9 +1179,26 @@
                 });
             });
             
+            // Event listener para busqueda
             document.getElementById('searchBike').addEventListener('input', () => {
                 actualizarSidebar(bicicletasData);
             });
+            
+            // Cerrar panel al hacer clic fuera
+            document.getElementById('map').addEventListener('click', (e) => {
+                if (!e.target.closest('.bike-marker')) {
+                    // No cerrar si se hizo clic en un marcador
+                }
+            });
+            
+            console.log('Monitoreo de Flota iniciado - 30 bicicletas activas');
+        });
+        
+        // Limpiar intervalo al salir
+        window.addEventListener('beforeunload', () => {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
         });
     </script>
 </body>
