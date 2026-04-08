@@ -564,6 +564,11 @@
                 <div class="legend-icon" style="background: #9b59b6;"></div>
                 <span>Estacion Runni</span>
             </div>
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #0f3460; font-size: 0.75rem; color: #888;">
+                <strong style="color: #e74c3c;">Click en el mapa</strong><br>
+                Ver trafico de bicicletas<br>
+                en las ultimas 4 horas
+            </div>
         </div>
         
         <div class="bike-info-panel" id="bikeInfoPanel">
@@ -591,7 +596,6 @@
     <script>
         // ============================================================
         // DATOS SIMULADOS - FLOTA DE BICICLETAS RUNNI
-        // Estos datos simulan la informacion que vendra de la API
         // ============================================================
         
         // Restaurantes y comercios del Valle de Aburra
@@ -657,181 +661,487 @@
         let bicicletasData = [];
         let historicoData = {};
         let updateInterval;
+        let animationInterval;
+        
+        // NUEVO: Sistema de historial de trafico por ubicacion
+        let trafficHistory = []; // Registros de todas las posiciones de las ultimas 4 horas
+        let clickMarker = null; // Marcador del punto donde el usuario hizo clic
+        let clickRadius = null; // Circulo del radio de busqueda
+        
+        // Configuracion
+        const CONFIG = {
+            TRAFFIC_HISTORY_HOURS: 4, // Horas de historial a mantener
+            CLICK_RADIUS_METERS: 150, // Radio de busqueda al hacer clic (150 metros)
+            UPDATE_INTERVAL: 1000, // Actualizacion cada 1 segundo para movimiento fluido
+            ANIMATION_STEPS: 60, // Pasos de animacion entre actualizaciones
+        };
         
         // ============================================================
-        // GENERADOR DE DATOS SIMULADOS
+        // SISTEMA DE MOVIMIENTO REALISTA
         // ============================================================
         
-        // Generar flota inicial de bicicletas (se mantiene consistente)
+        // Generar flota inicial con rutas asignadas
         function generarFlotaInicial() {
             const bicicletas = [];
-            const numBicicletas = 30; // Flota de 30 bicicletas
+            const numBicicletas = 30;
             
             for (let i = 1; i <= numBicicletas; i++) {
                 const id = `RUNNI-${String(i).padStart(3, '0')}`;
-                
-                // Asignar domiciliario fijo
                 const domiciliario = DOMICILIARIOS[i - 1] || `Domiciliario ${i}`;
+                const estacion = ESTACIONES[Math.floor(Math.random() * ESTACIONES.length)];
                 
-                // Generar historico de los ultimos 3 meses
-                historicoData[id] = generarHistoricoBicicleta(id);
+                // Determinar estado inicial aleatorio
+                const rand = Math.random();
+                let estado, restaurante = null, destino = null, lat, lon;
+                
+                if (rand < 0.45) {
+                    // En ruta: asignar origen y destino
+                    estado = 'en-ruta';
+                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
+                    // Empezar en una posicion aleatoria de la ruta
+                    const progreso = Math.random();
+                    lat = restaurante.lat + (destino.lat - restaurante.lat) * progreso;
+                    lon = restaurante.lon + (destino.lon - restaurante.lon) * progreso;
+                } else if (rand < 0.75) {
+                    // Disponible: cerca de un restaurante
+                    estado = 'disponible';
+                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                    lat = restaurante.lat + (Math.random() - 0.5) * 0.002;
+                    lon = restaurante.lon + (Math.random() - 0.5) * 0.002;
+                } else if (rand < 0.90) {
+                    // En espera: en una estacion
+                    estado = 'en-espera';
+                    lat = estacion.lat + (Math.random() - 0.5) * 0.001;
+                    lon = estacion.lon + (Math.random() - 0.5) * 0.001;
+                } else {
+                    // Offline
+                    estado = 'offline';
+                    lat = estacion.lat + (Math.random() - 0.5) * 0.002;
+                    lon = estacion.lon + (Math.random() - 0.5) * 0.002;
+                }
                 
                 bicicletas.push({
                     id,
                     domiciliario,
                     domiciliarioId: `DOM-${String(i).padStart(3, '0')}`,
-                    // Datos que se actualizaran en tiempo real
-                    lat: 0,
-                    lon: 0,
-                    estado: 'disponible',
-                    bateria: 100,
-                    velocidad: 0,
-                    restaurante: null,
-                    destino: null,
-                    estacion: ESTACIONES[Math.floor(Math.random() * ESTACIONES.length)],
+                    lat,
+                    lon,
+                    targetLat: lat, // Posicion objetivo para animacion
+                    targetLon: lon,
+                    estado,
+                    bateria: estado === 'offline' ? Math.floor(Math.random() * 20) : Math.floor(Math.random() * 40) + 60,
+                    velocidad: estado === 'en-ruta' ? Math.floor(Math.random() * 10) + 15 : 0,
+                    restaurante,
+                    destino,
+                    estacion,
                     timestamp: new Date().toISOString(),
-                    domiciliosHoy: 0,
-                    distanciaHoy: 0,
-                    tiempoPromedioEntrega: 0,
-                    ultimaZona: ''
+                    domiciliosHoy: Math.floor(Math.random() * 8),
+                    distanciaHoy: parseFloat((Math.random() * 20 + 5).toFixed(1)),
+                    tiempoPromedioEntrega: Math.floor(Math.random() * 10) + 15,
+                    ultimaZona: restaurante?.zona || estacion.nombre,
+                    // Datos para movimiento
+                    routeProgress: Math.random(), // Progreso en la ruta actual (0-1)
+                    waitTime: 0, // Tiempo de espera restante
+                    direction: 1, // 1 = hacia destino, -1 = regresando
                 });
             }
             
             return bicicletas;
         }
         
-        // Generar historico de rutas de los ultimos 3 meses
-        function generarHistoricoBicicleta(bikeId) {
-            const historico = [];
-            const hoy = new Date();
-            
-            // Generar datos de los ultimos 90 dias
-            for (let dia = 0; dia < 90; dia++) {
-                const fecha = new Date(hoy);
-                fecha.setDate(fecha.getDate() - dia);
-                
-                // Entre 5 y 15 domicilios por dia
-                const numDomicilios = Math.floor(Math.random() * 11) + 5;
-                const rutas = [];
-                
-                for (let j = 0; j < numDomicilios; j++) {
-                    const restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
-                    const destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
-                    
-                    const horaInicio = 8 + Math.floor(Math.random() * 12); // Entre 8am y 8pm
-                    const minutoInicio = Math.floor(Math.random() * 60);
-                    const duracion = Math.floor(Math.random() * 20) + 10; // 10-30 minutos
-                    
-                    rutas.push({
-                        origen: {
-                            nombre: restaurante.nombre,
-                            lat: restaurante.lat,
-                            lon: restaurante.lon,
-                            zona: restaurante.zona
-                        },
-                        destino: {
-                            nombre: destino.nombre,
-                            lat: destino.lat,
-                            lon: destino.lon,
-                            zona: destino.zona
-                        },
-                        horaInicio: `${String(horaInicio).padStart(2, '0')}:${String(minutoInicio).padStart(2, '0')}`,
-                        duracionMin: duracion,
-                        distanciaKm: (Math.random() * 5 + 1).toFixed(2)
-                    });
-                }
-                
-                historico.push({
-                    fecha: fecha.toISOString().split('T')[0],
-                    totalDomicilios: numDomicilios,
-                    totalDistanciaKm: rutas.reduce((sum, r) => sum + parseFloat(r.distanciaKm), 0).toFixed(2),
-                    tiempoPromedioMin: Math.floor(rutas.reduce((sum, r) => sum + r.duracionMin, 0) / numDomicilios),
-                    rutas
-                });
-            }
-            
-            return historico;
-        }
-        
-        // Actualizar posiciones en tiempo real (simula movimiento)
-        function actualizarPosicionesEnTiempoReal(bicicletas) {
-            const estados = ['en-ruta', 'disponible', 'en-espera', 'offline'];
-            const pesos = [0.45, 0.30, 0.15, 0.10]; // 45% en ruta, 30% disponible, 15% espera, 10% offline
+        // Actualizar posiciones con movimiento realista
+        function actualizarMovimiento(bicicletas) {
+            const ahora = new Date();
             
             return bicicletas.map(bike => {
-                // Decidir estado basado en probabilidades
-                const rand = Math.random();
-                let estado;
-                let acumulado = 0;
-                for (let i = 0; i < estados.length; i++) {
-                    acumulado += pesos[i];
-                    if (rand < acumulado) {
-                        estado = estados[i];
-                        break;
+                let nuevoEstado = bike.estado;
+                let nuevaLat = bike.lat;
+                let nuevaLon = bike.lon;
+                let nuevaVelocidad = bike.velocidad;
+                let nuevoRestaurante = bike.restaurante;
+                let nuevoDestino = bike.destino;
+                let nuevoProgreso = bike.routeProgress;
+                let nuevaDireccion = bike.direction;
+                let nuevoWaitTime = bike.waitTime;
+                let nuevosDomiciliosHoy = bike.domiciliosHoy;
+                let nuevaDistanciaHoy = bike.distanciaHoy;
+                
+                if (bike.estado === 'offline') {
+                    // Offline: sin movimiento, ocasionalmente vuelve online
+                    if (Math.random() < 0.005) { // 0.5% chance de volver
+                        nuevoEstado = 'disponible';
+                        nuevoRestaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                        nuevaLat = nuevoRestaurante.lat + (Math.random() - 0.5) * 0.002;
+                        nuevaLon = nuevoRestaurante.lon + (Math.random() - 0.5) * 0.002;
+                    }
+                    
+                } else if (bike.estado === 'en-espera') {
+                    // En espera (cargando): esperar y luego salir
+                    nuevoWaitTime = bike.waitTime - 1;
+                    if (nuevoWaitTime <= 0) {
+                        // Termino de cargar, sale a buscar pedidos
+                        nuevoEstado = 'disponible';
+                        nuevoRestaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                        nuevaLat = nuevoRestaurante.lat + (Math.random() - 0.5) * 0.002;
+                        nuevaLon = nuevoRestaurante.lon + (Math.random() - 0.5) * 0.002;
+                    }
+                    
+                } else if (bike.estado === 'disponible') {
+                    // Disponible: espera un pedido o se mueve cerca del restaurante
+                    if (Math.random() < 0.03) { // 3% chance de recibir pedido
+                        nuevoEstado = 'en-ruta';
+                        nuevoRestaurante = bike.restaurante || RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                        nuevoDestino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
+                        nuevoProgreso = 0;
+                        nuevaDireccion = 1;
+                        nuevaVelocidad = Math.floor(Math.random() * 10) + 15;
+                    } else {
+                        // Movimiento aleatorio pequeño cerca del restaurante
+                        const wiggle = 0.0001;
+                        nuevaLat = bike.lat + (Math.random() - 0.5) * wiggle;
+                        nuevaLon = bike.lon + (Math.random() - 0.5) * wiggle;
+                        
+                        // Ocasionalmente va a cargar bateria
+                        if (bike.bateria < 30 && Math.random() < 0.1) {
+                            nuevoEstado = 'en-espera';
+                            nuevoWaitTime = Math.floor(Math.random() * 30) + 20; // 20-50 ciclos
+                            const estacion = bike.estacion;
+                            nuevaLat = estacion.lat + (Math.random() - 0.5) * 0.001;
+                            nuevaLon = estacion.lon + (Math.random() - 0.5) * 0.001;
+                        }
+                    }
+                    
+                } else if (bike.estado === 'en-ruta') {
+                    // En ruta: moverse hacia el destino
+                    if (bike.restaurante && bike.destino) {
+                        // Calcular velocidad de progreso (depende de la distancia)
+                        const distanciaTotal = calcularDistancia(
+                            bike.restaurante.lat, bike.restaurante.lon,
+                            bike.destino.lat, bike.destino.lon
+                        );
+                        // Velocidad promedio 18 km/h = 0.005 grados por segundo aprox
+                        const velocidadProgreso = 0.015 / Math.max(distanciaTotal * 100, 1);
+                        
+                        nuevoProgreso = bike.routeProgress + velocidadProgreso * bike.direction;
+                        
+                        // Agregar variacion a la ruta (no ir en linea recta)
+                        const variacion = Math.sin(nuevoProgreso * Math.PI * 4) * 0.001;
+                        
+                        if (nuevoProgreso >= 1) {
+                            // Llego al destino
+                            nuevoProgreso = 1;
+                            nuevosDomiciliosHoy = bike.domiciliosHoy + 1;
+                            nuevaDistanciaHoy = bike.distanciaHoy + distanciaTotal;
+                            
+                            // Espera un momento y regresa o busca nuevo pedido
+                            if (Math.random() < 0.7) {
+                                // Buscar nuevo pedido cerca
+                                nuevoEstado = 'disponible';
+                                nuevoRestaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                                nuevaLat = nuevoRestaurante.lat + (Math.random() - 0.5) * 0.002;
+                                nuevaLon = nuevoRestaurante.lon + (Math.random() - 0.5) * 0.002;
+                                nuevoDestino = null;
+                                nuevoProgreso = 0;
+                            } else {
+                                // Nuevo pedido inmediato
+                                nuevoRestaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
+                                nuevoDestino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
+                                nuevoProgreso = 0;
+                            }
+                        } else if (nuevoProgreso < 0) {
+                            nuevoProgreso = 0;
+                            nuevaDireccion = 1;
+                        } else {
+                            // Interpolar posicion
+                            nuevaLat = bike.restaurante.lat + (bike.destino.lat - bike.restaurante.lat) * nuevoProgreso + variacion;
+                            nuevaLon = bike.restaurante.lon + (bike.destino.lon - bike.restaurante.lon) * nuevoProgreso;
+                        }
+                        
+                        nuevaVelocidad = Math.floor(Math.random() * 5) + 15; // 15-20 km/h
                     }
                 }
                 
-                let lat, lon, restaurante = null, destino = null, velocidad = 0;
-                
-                if (estado === 'en-ruta') {
-                    // En ruta: entre un restaurante y un destino
-                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
-                    destino = ZONAS_RESIDENCIALES[Math.floor(Math.random() * ZONAS_RESIDENCIALES.length)];
-                    const progreso = Math.random();
-                    lat = restaurante.lat + (destino.lat - restaurante.lat) * progreso;
-                    lon = restaurante.lon + (destino.lon - restaurante.lon) * progreso;
-                    velocidad = Math.floor(Math.random() * 15) + 12; // 12-27 km/h
-                    
-                } else if (estado === 'disponible') {
-                    // Disponible: cerca de un restaurante
-                    restaurante = RESTAURANTES[Math.floor(Math.random() * RESTAURANTES.length)];
-                    lat = restaurante.lat + (Math.random() - 0.5) * 0.003;
-                    lon = restaurante.lon + (Math.random() - 0.5) * 0.003;
-                    velocidad = 0;
-                    
-                } else if (estado === 'en-espera') {
-                    // En espera: en una estacion
-                    const estacion = bike.estacion;
-                    lat = estacion.lat + (Math.random() - 0.5) * 0.001;
-                    lon = estacion.lon + (Math.random() - 0.5) * 0.001;
-                    velocidad = 0;
-                    
-                } else {
-                    // Offline: ultima posicion conocida o estacion
-                    const estacion = bike.estacion;
-                    lat = estacion.lat + (Math.random() - 0.5) * 0.002;
-                    lon = estacion.lon + (Math.random() - 0.5) * 0.002;
-                    velocidad = 0;
+                // Actualizar bateria
+                let nuevaBateria = bike.bateria;
+                if (bike.estado === 'en-espera') {
+                    nuevaBateria = Math.min(100, bike.bateria + 0.5); // Cargando
+                } else if (bike.estado === 'en-ruta') {
+                    nuevaBateria = Math.max(5, bike.bateria - 0.1); // Descargando
                 }
                 
-                // Calcular domicilios y distancia del dia
-                const historicoHoy = historicoData[bike.id]?.[0];
-                const domiciliosHoy = historicoHoy ? Math.floor(historicoHoy.totalDomicilios * (new Date().getHours() / 24)) : Math.floor(Math.random() * 12);
-                const distanciaHoy = historicoHoy ? (parseFloat(historicoHoy.totalDistanciaKm) * (new Date().getHours() / 24)).toFixed(1) : (Math.random() * 30 + 5).toFixed(1);
+                // Registrar posicion en historial de trafico
+                if (nuevoEstado !== 'offline') {
+                    registrarTrafico(bike.id, bike.domiciliario, nuevaLat, nuevaLon, ahora);
+                }
                 
                 return {
                     ...bike,
-                    lat,
-                    lon,
-                    estado,
-                    bateria: estado === 'offline' ? Math.floor(Math.random() * 20) : Math.floor(Math.random() * 50) + 50,
-                    velocidad,
-                    restaurante,
-                    destino,
-                    timestamp: new Date().toISOString(),
-                    domiciliosHoy,
-                    distanciaHoy: parseFloat(distanciaHoy),
-                    tiempoPromedioEntrega: historicoHoy?.tiempoPromedioMin || Math.floor(Math.random() * 10) + 15,
-                    ultimaZona: restaurante?.zona || bike.estacion.nombre
+                    lat: nuevaLat,
+                    lon: nuevaLon,
+                    targetLat: nuevaLat,
+                    targetLon: nuevaLon,
+                    estado: nuevoEstado,
+                    velocidad: nuevaVelocidad,
+                    bateria: Math.round(nuevaBateria),
+                    restaurante: nuevoRestaurante,
+                    destino: nuevoDestino,
+                    routeProgress: nuevoProgreso,
+                    direction: nuevaDireccion,
+                    waitTime: nuevoWaitTime,
+                    domiciliosHoy: nuevosDomiciliosHoy,
+                    distanciaHoy: parseFloat(nuevaDistanciaHoy.toFixed(1)),
+                    timestamp: ahora.toISOString(),
+                    ultimaZona: nuevoRestaurante?.zona || bike.estacion.nombre,
                 };
             });
+        }
+        
+        // Calcular distancia entre dos puntos (en grados, aproximado)
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2));
+        }
+        
+        // Calcular distancia en metros (formula Haversine simplificada)
+        function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Radio de la tierra en metros
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        // ============================================================
+        // SISTEMA DE HISTORIAL DE TRAFICO
+        // ============================================================
+        
+        // Registrar posicion de bicicleta en historial
+        function registrarTrafico(bikeId, domiciliario, lat, lon, timestamp) {
+            trafficHistory.push({
+                bikeId,
+                domiciliario,
+                lat,
+                lon,
+                timestamp: timestamp.getTime()
+            });
+            
+            // Limpiar registros antiguos (mas de 4 horas)
+            const limiteAntiguo = timestamp.getTime() - (CONFIG.TRAFFIC_HISTORY_HOURS * 60 * 60 * 1000);
+            trafficHistory = trafficHistory.filter(r => r.timestamp > limiteAntiguo);
+        }
+        
+        // Buscar bicicletas que pasaron por un punto
+        function buscarBicicletasEnPunto(lat, lon, radiusMeters = CONFIG.CLICK_RADIUS_METERS) {
+            const ahora = Date.now();
+            const hace4Horas = ahora - (CONFIG.TRAFFIC_HISTORY_HOURS * 60 * 60 * 1000);
+            
+            // Encontrar todos los registros dentro del radio
+            const registrosEnZona = trafficHistory.filter(r => {
+                if (r.timestamp < hace4Horas) return false;
+                const distancia = calcularDistanciaMetros(lat, lon, r.lat, r.lon);
+                return distancia <= radiusMeters;
+            });
+            
+            // Agrupar por bicicleta y contar pasadas unicas (con al menos 30 segundos entre ellas)
+            const bicicletasMap = new Map();
+            
+            registrosEnZona.forEach(r => {
+                if (!bicicletasMap.has(r.bikeId)) {
+                    bicicletasMap.set(r.bikeId, {
+                        bikeId: r.bikeId,
+                        domiciliario: r.domiciliario,
+                        pasadas: [],
+                        ultimaPasada: null
+                    });
+                }
+                
+                const bikeData = bicicletasMap.get(r.bikeId);
+                // Solo contar como nueva pasada si han pasado al menos 30 segundos
+                if (!bikeData.ultimaPasada || (r.timestamp - bikeData.ultimaPasada) > 30000) {
+                    bikeData.pasadas.push(new Date(r.timestamp));
+                    bikeData.ultimaPasada = r.timestamp;
+                }
+            });
+            
+            // Convertir a array y ordenar por numero de pasadas
+            const resultado = Array.from(bicicletasMap.values())
+                .map(b => ({
+                    bikeId: b.bikeId,
+                    domiciliario: b.domiciliario,
+                    numeroPasadas: b.pasadas.length,
+                    ultimaPasada: b.pasadas[b.pasadas.length - 1],
+                    primerasPasada: b.pasadas[0]
+                }))
+                .sort((a, b) => b.numeroPasadas - a.numeroPasadas);
+            
+            return {
+                totalBicicletas: resultado.length,
+                totalPasadas: resultado.reduce((sum, b) => sum + b.numeroPasadas, 0),
+                bicicletas: resultado
+            };
+        }
+        
+        // Mostrar panel de trafico al hacer clic en el mapa
+        function mostrarTraficoEnPunto(lat, lon) {
+            const resultado = buscarBicicletasEnPunto(lat, lon);
+            
+            // Remover marcador y circulo anteriores
+            if (clickMarker) map.removeLayer(clickMarker);
+            if (clickRadius) map.removeLayer(clickRadius);
+            
+            // Agregar nuevo marcador
+            clickMarker = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'click-marker',
+                    html: `<div style="
+                        width: 20px;
+                        height: 20px;
+                        background: #e74c3c;
+                        border: 3px solid white;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                    "></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map);
+            
+            // Agregar circulo de radio
+            clickRadius = L.circle([lat, lon], {
+                radius: CONFIG.CLICK_RADIUS_METERS,
+                color: '#e74c3c',
+                fillColor: '#e74c3c',
+                fillOpacity: 0.1,
+                weight: 2,
+                dashArray: '5, 5'
+            }).addTo(map);
+            
+            // Mostrar panel de trafico
+            mostrarPanelTrafico(resultado, lat, lon);
+        }
+        
+        // Crear y mostrar panel de trafico
+        function mostrarPanelTrafico(resultado, lat, lon) {
+            // Remover panel anterior si existe
+            const panelAnterior = document.getElementById('trafficPanel');
+            if (panelAnterior) panelAnterior.remove();
+            
+            const panel = document.createElement('div');
+            panel.id = 'trafficPanel';
+            panel.style.cssText = `
+                position: absolute;
+                top: 70px;
+                left: 340px;
+                background: rgba(22, 33, 62, 0.95);
+                padding: 15px;
+                border-radius: 10px;
+                z-index: 1001;
+                min-width: 280px;
+                max-width: 350px;
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #e74c3c;
+                backdrop-filter: blur(10px);
+                font-family: 'Segoe UI', sans-serif;
+            `;
+            
+            const horasTexto = CONFIG.TRAFFIC_HISTORY_HOURS;
+            
+            let contenido = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="color: #e74c3c; margin: 0; font-size: 0.95rem;">
+                        Trafico en este punto
+                    </h4>
+                    <button onclick="cerrarPanelTrafico()" style="
+                        background: none;
+                        border: none;
+                        color: #888;
+                        cursor: pointer;
+                        font-size: 1.2rem;
+                        padding: 0;
+                    ">&times;</button>
+                </div>
+                <div style="font-size: 0.8rem; color: #888; margin-bottom: 12px;">
+                    Ultimas ${horasTexto} horas | Radio: ${CONFIG.CLICK_RADIUS_METERS}m
+                </div>
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="text-align: center; flex: 1; background: rgba(231,76,60,0.2); padding: 10px; border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #e74c3c;">${resultado.totalBicicletas}</div>
+                        <div style="font-size: 0.75rem; color: #aaa;">Bicicletas</div>
+                    </div>
+                    <div style="text-align: center; flex: 1; background: rgba(255,107,53,0.2); padding: 10px; border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #FF6B35;">${resultado.totalPasadas}</div>
+                        <div style="font-size: 0.75rem; color: #aaa;">Pasadas totales</div>
+                    </div>
+                </div>
+            `;
+            
+            if (resultado.bicicletas.length > 0) {
+                contenido += `<div style="font-size: 0.85rem; color: #FF6B35; margin-bottom: 8px; font-weight: 600;">Detalle por bicicleta:</div>`;
+                contenido += `<div style="max-height: 200px; overflow-y: auto;">`;
+                
+                resultado.bicicletas.forEach(bike => {
+                    const ultimaHora = bike.ultimaPasada.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+                    contenido += `
+                        <div style="
+                            background: rgba(255,255,255,0.05);
+                            padding: 8px 10px;
+                            border-radius: 6px;
+                            margin-bottom: 6px;
+                            cursor: pointer;
+                            transition: background 0.2s;
+                        " onmouseover="this.style.background='rgba(255,107,53,0.2)'" 
+                           onmouseout="this.style.background='rgba(255,255,255,0.05)'"
+                           onclick="seleccionarBicicleta('${bike.bikeId}')">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; color: #fff;">${bike.bikeId}</span>
+                                <span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem;">
+                                    ${bike.numeroPasadas} ${bike.numeroPasadas === 1 ? 'vez' : 'veces'}
+                                </span>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #aaa; margin-top: 4px;">
+                                ${bike.domiciliario} | Ultima: ${ultimaHora}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                contenido += `</div>`;
+            } else {
+                contenido += `
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">🚲</div>
+                        <div>No hay bicicletas registradas en este punto en las ultimas ${horasTexto} horas</div>
+                    </div>
+                `;
+            }
+            
+            panel.innerHTML = contenido;
+            document.querySelector('.main-container').appendChild(panel);
+        }
+        
+        // Cerrar panel de trafico
+        function cerrarPanelTrafico() {
+            const panel = document.getElementById('trafficPanel');
+            if (panel) panel.remove();
+            if (clickMarker) {
+                map.removeLayer(clickMarker);
+                clickMarker = null;
+            }
+            if (clickRadius) {
+                map.removeLayer(clickRadius);
+                clickRadius = null;
+            }
         }
         
         // ============================================================
         // FUNCIONES DEL MAPA
         // ============================================================
         
-        function getBikeIcon(estado) {
+        function getBikeIcon(estado, velocidad = 0) {
             const colores = {
                 'en-ruta': '#2ecc71',
                 'disponible': '#3498db',
@@ -841,67 +1151,104 @@
             
             const color = colores[estado] || '#95a5a6';
             const opacity = estado === 'offline' ? '0.5' : '1';
+            const pulseAnimation = estado === 'en-ruta' ? 'animation: pulse-bike 1s infinite;' : '';
             
             return L.divIcon({
                 className: 'bike-marker',
-                html: `<div style="
-                    width: 36px;
-                    height: 36px;
-                    background: ${color};
-                    border: 3px solid white;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-                    cursor: pointer;
-                    opacity: ${opacity};
-                    transition: transform 0.2s;
-                " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">🚲</div>`,
+                html: `
+                    <style>
+                        @keyframes pulse-bike {
+                            0%, 100% { box-shadow: 0 3px 10px rgba(46,204,113,0.3); }
+                            50% { box-shadow: 0 3px 20px rgba(46,204,113,0.6); }
+                        }
+                    </style>
+                    <div style="
+                        width: 36px;
+                        height: 36px;
+                        background: ${color};
+                        border: 3px solid white;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 18px;
+                        box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                        opacity: ${opacity};
+                        transition: transform 0.3s ease;
+                        ${pulseAnimation}
+                    " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">🚲</div>`,
                 iconSize: [36, 36],
                 iconAnchor: [18, 18]
             });
         }
         
-        function actualizarMapa(bicicletas) {
+        function actualizarMapa(bicicletas, animate = false) {
             bicicletasData = bicicletas;
             
-            // Limpiar marcadores anteriores
-            Object.values(bikeMarkers).forEach(m => {
-                try { map.removeLayer(m); } catch(e) {}
-            });
-            Object.values(routeLines).forEach(l => {
-                try { map.removeLayer(l); } catch(e) {}
-            });
-            bikeMarkers = {};
-            routeLines = {};
-            
-            // Agregar marcadores de bicicletas
             bicicletas.forEach(bike => {
                 if (bike.lat && bike.lon) {
-                    const marker = L.marker([bike.lat, bike.lon], {
-                        icon: getBikeIcon(bike.estado)
-                    }).addTo(map);
+                    if (bikeMarkers[bike.id]) {
+                        // Actualizar posicion del marcador existente con animacion suave
+                        const marker = bikeMarkers[bike.id];
+                        const currentLatLng = marker.getLatLng();
+                        
+                        if (animate) {
+                            // Animacion suave
+                            animateMarker(marker, currentLatLng, L.latLng(bike.lat, bike.lon), 800);
+                        } else {
+                            marker.setLatLng([bike.lat, bike.lon]);
+                        }
+                        
+                        // Actualizar icono si cambio el estado
+                        marker.setIcon(getBikeIcon(bike.estado, bike.velocidad));
+                        
+                        // Actualizar popup
+                        const estadoTexto = bike.estado.replace('-', ' ').toUpperCase();
+                        marker.setPopupContent(`
+                            <div style="min-width: 180px; font-family: 'Segoe UI', sans-serif;">
+                                <div style="font-weight: bold; font-size: 14px; color: #FF6B35; margin-bottom: 8px;">${bike.id}</div>
+                                <div style="margin-bottom: 5px;"><strong>Domiciliario:</strong> ${bike.domiciliario}</div>
+                                <div style="margin-bottom: 5px;"><strong>Estado:</strong> ${estadoTexto}</div>
+                                <div style="margin-bottom: 5px;"><strong>Bateria:</strong> ${bike.bateria}%</div>
+                                ${bike.velocidad > 0 ? `<div style="margin-bottom: 5px;"><strong>Velocidad:</strong> ${bike.velocidad} km/h</div>` : ''}
+                                ${bike.restaurante ? `<div style="margin-bottom: 5px;"><strong>Desde:</strong> ${bike.restaurante.nombre}</div>` : ''}
+                                ${bike.destino ? `<div><strong>Hacia:</strong> ${bike.destino.nombre}</div>` : ''}
+                            </div>
+                        `);
+                    } else {
+                        // Crear nuevo marcador
+                        const marker = L.marker([bike.lat, bike.lon], {
+                            icon: getBikeIcon(bike.estado, bike.velocidad)
+                        }).addTo(map);
+                        
+                        marker.on('click', (e) => {
+                            L.DomEvent.stopPropagation(e);
+                            seleccionarBicicleta(bike.id);
+                        });
+                        
+                        const estadoTexto = bike.estado.replace('-', ' ').toUpperCase();
+                        marker.bindPopup(`
+                            <div style="min-width: 180px; font-family: 'Segoe UI', sans-serif;">
+                                <div style="font-weight: bold; font-size: 14px; color: #FF6B35; margin-bottom: 8px;">${bike.id}</div>
+                                <div style="margin-bottom: 5px;"><strong>Domiciliario:</strong> ${bike.domiciliario}</div>
+                                <div style="margin-bottom: 5px;"><strong>Estado:</strong> ${estadoTexto}</div>
+                                <div style="margin-bottom: 5px;"><strong>Bateria:</strong> ${bike.bateria}%</div>
+                                ${bike.velocidad > 0 ? `<div style="margin-bottom: 5px;"><strong>Velocidad:</strong> ${bike.velocidad} km/h</div>` : ''}
+                                ${bike.restaurante ? `<div style="margin-bottom: 5px;"><strong>Desde:</strong> ${bike.restaurante.nombre}</div>` : ''}
+                                ${bike.destino ? `<div><strong>Hacia:</strong> ${bike.destino.nombre}</div>` : ''}
+                            </div>
+                        `);
+                        
+                        bikeMarkers[bike.id] = marker;
+                    }
                     
-                    marker.on('click', () => seleccionarBicicleta(bike.id));
+                    // Actualizar linea de ruta
+                    if (routeLines[bike.id]) {
+                        map.removeLayer(routeLines[bike.id]);
+                        delete routeLines[bike.id];
+                    }
                     
-                    const estadoTexto = bike.estado.replace('-', ' ').toUpperCase();
-                    marker.bindPopup(`
-                        <div style="min-width: 180px; font-family: 'Segoe UI', sans-serif;">
-                            <div style="font-weight: bold; font-size: 14px; color: #FF6B35; margin-bottom: 8px;">${bike.id}</div>
-                            <div style="margin-bottom: 5px;"><strong>Domiciliario:</strong> ${bike.domiciliario}</div>
-                            <div style="margin-bottom: 5px;"><strong>Estado:</strong> ${estadoTexto}</div>
-                            <div style="margin-bottom: 5px;"><strong>Bateria:</strong> ${bike.bateria}%</div>
-                            ${bike.velocidad > 0 ? `<div style="margin-bottom: 5px;"><strong>Velocidad:</strong> ${bike.velocidad} km/h</div>` : ''}
-                            ${bike.restaurante ? `<div style="margin-bottom: 5px;"><strong>Desde:</strong> ${bike.restaurante.nombre}</div>` : ''}
-                            ${bike.destino ? `<div><strong>Hacia:</strong> ${bike.destino.nombre}</div>` : ''}
-                        </div>
-                    `);
-                    
-                    bikeMarkers[bike.id] = marker;
-                    
-                    // Dibujar ruta si esta en camino
                     if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
                         const line = L.polyline([
                             [bike.restaurante.lat, bike.restaurante.lon],
@@ -924,6 +1271,30 @@
             actualizarHoraActualizacion();
         }
         
+        // Animar movimiento de marcador
+        function animateMarker(marker, start, end, duration) {
+            const startTime = Date.now();
+            
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function para movimiento suave
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                
+                const lat = start.lat + (end.lat - start.lat) * easeProgress;
+                const lng = start.lng + (end.lng - start.lng) * easeProgress;
+                
+                marker.setLatLng([lat, lng]);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
         function actualizarSidebar(bicicletas) {
             const lista = document.getElementById('bikeList');
             const filtro = document.querySelector('.filter-btn.active')?.dataset.filter || 'todos';
@@ -942,7 +1313,6 @@
                 );
             }
             
-            // Ordenar: en ruta primero, luego disponibles, etc.
             const ordenEstado = { 'en-ruta': 0, 'disponible': 1, 'en-espera': 2, 'offline': 3 };
             filtradas.sort((a, b) => ordenEstado[a.estado] - ordenEstado[b.estado]);
             
@@ -974,7 +1344,6 @@
                 `;
             }).join('');
             
-            // Si no hay resultados
             if (filtradas.length === 0) {
                 lista.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No se encontraron bicicletas</div>';
             }
@@ -997,7 +1366,6 @@
             const totalDistancia = bicicletas.reduce((sum, b) => sum + b.distanciaHoy, 0);
             const tiempoPromedio = Math.round(bicicletas.reduce((sum, b) => sum + b.tiempoPromedioEntrega, 0) / bicicletas.length);
             
-            // Contar zonas
             const zonaCount = {};
             bicicletas.forEach(b => {
                 if (b.ultimaZona) {
@@ -1023,19 +1391,17 @@
             
             if (!bike || !map) return;
             
-            // Centrar mapa
-            map.setView([bike.lat, bike.lon], 15);
+            map.setView([bike.lat, bike.lon], 16);
             
-            // Abrir popup
             if (bikeMarkers[bikeId]) {
                 bikeMarkers[bikeId].openPopup();
             }
             
-            // Mostrar panel de info
             mostrarPanelBicicleta(bike);
-            
-            // Actualizar sidebar
             actualizarSidebar(bicicletasData);
+            
+            // Cerrar panel de trafico si esta abierto
+            cerrarPanelTrafico();
         }
         
         function mostrarPanelBicicleta(bike) {
@@ -1050,7 +1416,6 @@
             document.getElementById('infoDistanciaHoy').textContent = `${bike.distanciaHoy} km`;
             document.getElementById('infoUbicacion').textContent = bike.ultimaZona || 'Desconocida';
             
-            // Mostrar ruta si esta en camino
             const routeDisplay = document.getElementById('routeDisplay');
             if (bike.estado === 'en-ruta' && bike.restaurante && bike.destino) {
                 document.getElementById('routeOrigen').textContent = bike.restaurante.nombre;
@@ -1072,16 +1437,34 @@
         function verHistorico() {
             if (!selectedBike) return;
             
-            const historico = historicoData[selectedBike];
-            if (historico && historico.length > 0) {
-                const ultimos7 = historico.slice(0, 7);
-                let mensaje = `Historico de ${selectedBike} (ultimos 7 dias):\n\n`;
+            const bike = bicicletasData.find(b => b.id === selectedBike);
+            if (!bike) return;
+            
+            // Buscar historial de trafico de esta bicicleta
+            const ahora = Date.now();
+            const hace4Horas = ahora - (4 * 60 * 60 * 1000);
+            
+            const registros = trafficHistory.filter(r => 
+                r.bikeId === selectedBike && r.timestamp > hace4Horas
+            );
+            
+            if (registros.length > 0) {
+                let mensaje = `Historico de ${selectedBike} (ultimas 4 horas):\n\n`;
+                mensaje += `Total de registros: ${registros.length}\n`;
+                mensaje += `Domicilios hoy: ${bike.domiciliosHoy}\n`;
+                mensaje += `Distancia hoy: ${bike.distanciaHoy} km\n\n`;
                 
-                ultimos7.forEach(dia => {
-                    mensaje += `${dia.fecha}: ${dia.totalDomicilios} domicilios, ${dia.totalDistanciaKm} km\n`;
+                // Mostrar ultimas 5 posiciones
+                const ultimas = registros.slice(-5).reverse();
+                mensaje += `Ultimas 5 posiciones:\n`;
+                ultimas.forEach(r => {
+                    const hora = new Date(r.timestamp).toLocaleTimeString('es-CO');
+                    mensaje += `- ${hora}: (${r.lat.toFixed(4)}, ${r.lon.toFixed(4)})\n`;
                 });
                 
                 alert(mensaje);
+            } else {
+                alert(`No hay historial de ${selectedBike} en las ultimas 4 horas`);
             }
         }
         
@@ -1097,7 +1480,6 @@
                     zoomControl: true
                 });
                 
-                // Capa base oscura
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; OpenStreetMap &copy; CARTO',
                     maxZoom: 19
@@ -1135,6 +1517,12 @@
                     }).addTo(map).bindPopup(`<b>${e.nombre}</b><br><small>Estacion Runni</small>`);
                 });
                 
+                // NUEVO: Event listener para clic en el mapa (consulta de trafico)
+                map.on('click', (e) => {
+                    // Solo si no se hizo clic en un marcador
+                    mostrarTraficoEnPunto(e.latlng.lat, e.latlng.lng);
+                });
+                
                 console.log('Mapa inicializado correctamente');
                 return true;
                 
@@ -1149,9 +1537,10 @@
         // ============================================================
         
         window.addEventListener('load', () => {
-            console.log('Iniciando Monitoreo de Flota RUNNI...');
+            console.log('Iniciando Monitoreo de Flota RUNNI v2.0...');
+            console.log('- Movimiento realista de bicicletas');
+            console.log('- Click en el mapa para ver trafico de ultimas 4 horas');
             
-            // Inicializar mapa
             if (!initMap()) {
                 console.error('No se pudo inicializar el mapa');
                 return;
@@ -1160,15 +1549,14 @@
             // Generar flota inicial
             let flota = generarFlotaInicial();
             
-            // Primera actualizacion
-            flota = actualizarPosicionesEnTiempoReal(flota);
-            actualizarMapa(flota);
+            // Primera actualizacion (sin animacion)
+            actualizarMapa(flota, false);
             
-            // Actualizar cada 5 segundos
+            // Actualizar movimiento cada segundo con animacion
             updateInterval = setInterval(() => {
-                flota = actualizarPosicionesEnTiempoReal(flota);
-                actualizarMapa(flota);
-            }, 5000);
+                flota = actualizarMovimiento(flota);
+                actualizarMapa(flota, true);
+            }, CONFIG.UPDATE_INTERVAL);
             
             // Event listeners para filtros
             document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -1184,21 +1572,13 @@
                 actualizarSidebar(bicicletasData);
             });
             
-            // Cerrar panel al hacer clic fuera
-            document.getElementById('map').addEventListener('click', (e) => {
-                if (!e.target.closest('.bike-marker')) {
-                    // No cerrar si se hizo clic en un marcador
-                }
-            });
-            
             console.log('Monitoreo de Flota iniciado - 30 bicicletas activas');
+            console.log('Haz clic en cualquier punto del mapa para ver cuantas bicicletas han pasado');
         });
         
         // Limpiar intervalo al salir
         window.addEventListener('beforeunload', () => {
-            if (updateInterval) {
-                clearInterval(updateInterval);
-            }
+            if (updateInterval) clearInterval(updateInterval);
         });
     </script>
 </body>
